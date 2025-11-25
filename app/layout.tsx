@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className={`font-sans antialiased`} suppressHydrationWarning>
         <Header />
         <main className="min-h-[calc(100vh-80px)] pt-20">{children}</main>
+        <Footer />
         <Toaster />
         <Analytics />
       </body>

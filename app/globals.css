@@ -134,3 +134,39 @@ header[class*="bg-black"] button[class*="bg-orange"] {
   background-color: #f97316 !important;
   color: white !important;
 }
+
+/* Breathing animation for splash screen */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.95;
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2s ease-in-out;
+}
+
+/* Zoom out animation - moves from center to header position */
+@keyframes zoom-to-header {
+  0% {
+    transform: scale(1) translate(0, 0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.08) translate(-48vw, -48vh);
+    opacity: 0;
+  }
+}
+
+.animate-zoom-to-header {
+  animation: zoom-to-header 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transform-origin: center center;
+}

@@ -6,61 +6,97 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sparkles, Target, FileCheck, TrendingUp, Shield, Users } from "lucide-react"
+import { SplashScreen } from "@/components/splash-screen"
 
 export default function HomePage() {
-  const [showImage, setShowImage] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
+  const [currentVideo, setCurrentVideo] = useState<1 | 2>(1)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const video2Ref = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    const handleVideoEnd = () => {
-      // Fade to image after video ends
-      setShowImage(true)
-    }
-
-    video.addEventListener("ended", handleVideoEnd)
-
-    return () => {
-      video.removeEventListener("ended", handleVideoEnd)
+    // Check if splash has been shown in this session
+    const splashShown = sessionStorage.getItem("splashShown")
+    if (splashShown === "true") {
+      setShowSplash(false)
     }
   }, [])
 
+  useEffect(() => {
+    const video1 = videoRef.current
+    const video2 = video2Ref.current
+
+    if (!video1 || !video2) return
+
+    const handleVideo1End = () => {
+      // When video 1 ends, play video 2
+      setCurrentVideo(2)
+      video2.play()
+    }
+
+    const handleVideo2End = () => {
+      // When video 2 ends, play video 1
+      setCurrentVideo(1)
+      video1.play()
+    }
+
+    // Start with video 1
+    video1.play()
+
+    video1.addEventListener("ended", handleVideo1End)
+    video2.addEventListener("ended", handleVideo2End)
+
+    return () => {
+      video1.removeEventListener("ended", handleVideo1End)
+      video2.removeEventListener("ended", handleVideo2End)
+    }
+  }, [])
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem("splashShown", "true")
+    setShowSplash(false)
+  }
+
   return (
-    <div className="bg-background">
+    <>
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      <div className={`bg-background -mt-20 transition-opacity duration-500 ${showSplash ? "opacity-0" : "opacity-100"}`}>
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-border">
-        {/* Video Background */}
+      <section className="relative overflow-hidden border-b border-border min-h-screen flex items-center">
+        {/* First Video Background */}
         <video
           ref={videoRef}
-          autoPlay
           muted
           playsInline
           loop={false}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-            showImage ? "opacity-0" : "opacity-100"
+            currentVideo === 1 ? "opacity-50 z-10" : "opacity-0 z-0"
           }`}
+          style={{ filter: "brightness(0.6)" }}
         >
           <source src="/vid.mp4" type="video/mp4" />
           <source src="/vid.webm" type="video/webm" />
-          {/* Fallback if video doesn't load */}
         </video>
 
-        {/* Background Image - fades in after video */}
-        <div 
-          className={`absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${
-            showImage ? "opacity-100" : "opacity-0"
+        {/* Second Video Background */}
+        <video
+          ref={video2Ref}
+          muted
+          playsInline
+          loop={false}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+            currentVideo === 2 ? "opacity-50 z-10" : "opacity-0 z-0"
           }`}
-          style={{
-            backgroundImage: 'url(/land.jpg)',
-          }}
-        />
+          style={{ filter: "brightness(0.6)" }}
+        >
+          <source src="/vid2.mp4" type="video/mp4" />
+          <source src="/vid2.webm" type="video/webm" />
+        </video>
 
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-black/60" />
+        {/* Dark Overlay - increased darkness for better text readability */}
+        <div className="absolute inset-0 bg-black/70" />
         {/* Content */}
-        <div className="relative z-10 container mx-auto px-4 py-20 md:py-32">
+        <div className="relative z-10 container mx-auto px-4 py-20 md:py-32 pt-32 md:pt-40">
           <div className="mx-auto max-w-3xl text-center">
             <h1 className="mb-6 text-balance text-4xl font-bold leading-tight tracking-tight text-white md:text-6xl">
               Find the Perfect Funding for Your Business
@@ -159,40 +195,52 @@ export default function HomePage() {
       </section>
 
       {/* Benefits Section */}
-      <section className="border-y border-border bg-accent/30 py-20">
-        <div className="container mx-auto px-4">
+      <section className="relative overflow-hidden border-y border-border py-20">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: "url('/proliink meet.png')",
+          }}
+        />
+        
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-black/60" />
+        
+        {/* Content */}
+        <div className="relative z-10 container mx-auto px-4">
           <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-foreground">Why Choose ELIDZ-STP?</h2>
-            <p className="text-lg text-muted-foreground">The smarter way to find and apply for business funding</p>
+            <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">Why Choose ELIDZ-STP?</h2>
+            <p className="text-lg text-white/90">The smarter way to find and apply for business funding</p>
           </div>
 
           <div className="grid gap-8 md:grid-cols-3">
-            <div className="text-center">
-              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <Shield className="h-8 w-8 text-primary" />
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                <Shield className="h-8 w-8 text-white" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold text-foreground">Secure & Trusted</h3>
-              <p className="leading-relaxed text-muted-foreground">
+              <h3 className="mb-2 text-xl font-semibold text-white">Secure & Trusted</h3>
+              <p className="leading-relaxed text-white/90">
                 Enterprise-grade security with admin oversight and approval workflows
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <Sparkles className="h-8 w-8 text-primary" />
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                <Sparkles className="h-8 w-8 text-white" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold text-foreground">AI-Powered</h3>
-              <p className="leading-relaxed text-muted-foreground">
+              <h3 className="mb-2 text-xl font-semibold text-white">AI-Powered</h3>
+              <p className="leading-relaxed text-white/90">
                 Smart matching algorithms find opportunities you'd never discover manually
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <Users className="h-8 w-8 text-primary" />
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
+              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                <Users className="h-8 w-8 text-white" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold text-foreground">Expert Support</h3>
-              <p className="leading-relaxed text-muted-foreground">
+              <h3 className="mb-2 text-xl font-semibold text-white">Expert Support</h3>
+              <p className="leading-relaxed text-white/90">
                 Comprehensive admin tools and user support throughout your funding journey
               </p>
             </div>
@@ -200,21 +248,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="mb-4 text-3xl font-bold text-foreground">Ready to Get Started?</h2>
-          <p className="mb-8 text-lg text-muted-foreground">
-            Join hundreds of successful SMMEs who have secured funding through our platform
-          </p>
-          <Link href="/register">
-            <Button size="lg" className="gap-2">
-              Create Your Free Account
-              <Sparkles className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-    </div>
+      </div>
+    </>
   )
 }

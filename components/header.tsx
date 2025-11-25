@@ -17,42 +17,28 @@ import { User, LogOut, Settings } from "lucide-react"
 export function Header() {
   const { user, logout, isAdmin, loading } = useAuth()
   const [mounted, setMounted] = useState(false)
-  const [showContent, setShowContent] = useState(false)
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Show content after a short delay to ensure auth state is loaded
-  useEffect(() => {
-    if (mounted) {
-      // Small delay to allow auth to initialize, then show content
-      // Also set a maximum timeout to ensure content always shows
-      const timer = setTimeout(() => {
-        setShowContent(true)
-      }, 100)
-      
-      // Fallback: force show content after 2 seconds even if still loading
-      const fallbackTimer = setTimeout(() => {
-        setShowContent(true)
-      }, 2000)
-      
-      return () => {
-        clearTimeout(timer)
-        clearTimeout(fallbackTimer)
-      }
-    }
-  }, [mounted, loading])
+  // Show loading skeleton only during initial load, not during subsequent auth checks
+  // Once we have a user, don't show loading again to prevent flickering
+  const showLoading = !mounted || (loading && !user)
+  
+  // Ensure user has required properties before rendering user menu
+  // Add null safety checks to prevent runtime errors
+  const hasValidUser = Boolean(user && user.name && user.email && user.id)
 
   return (
     <header className="fixed top-0 left-0 right-0 z-[9999] bg-black shadow-lg">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-end">
           <nav className="flex items-center gap-4">
-            {!mounted || (loading && !showContent) ? (
+            {showLoading ? (
               <div className="h-9 w-24 animate-pulse rounded bg-white/40 border border-white/20" />
-            ) : user ? (
+            ) : hasValidUser ? (
               <>
                 <Link
                   href={isAdmin ? "/admin" : "/dashboard"}
@@ -75,14 +61,14 @@ export function Header() {
                       className="gap-2 !text-white hover:!bg-white/10 hover:!text-white !border-0 [&_svg]:!text-white"
                     >
                       <User className="h-4 w-4" />
-                      {user.name}
+                      {user?.name || "User"}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">{user.name}</span>
-                        <span className="text-xs text-muted-foreground">{user.email}</span>
+                        <span className="text-sm font-medium">{user?.name || "User"}</span>
+                        <span className="text-xs text-muted-foreground">{user?.email || ""}</span>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />

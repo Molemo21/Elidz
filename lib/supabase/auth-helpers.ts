@@ -15,9 +15,15 @@ export async function getServerSession(): Promise<AuthUser | null> {
     .from('users')
     .select('id, email, role, first_name, last_name, approved')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (profileError || !profile) {
+  if (profileError) {
+    console.error('Profile query error:', profileError)
+    return null
+  }
+
+  if (!profile) {
+    console.warn('Profile not found for user:', user.id)
     return null
   }
 

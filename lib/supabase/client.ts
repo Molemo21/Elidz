@@ -4,6 +4,15 @@ import type { Database } from './database.types'
 // Singleton client instance to avoid multiple GoTrueClient instances
 let clientInstance: ReturnType<typeof createSupabaseClient<Database>> | null = null
 
+/**
+ * Reset the singleton client instance
+ * Use this if the client gets stuck or needs to be reinitialized
+ */
+export function resetClient() {
+  clientInstance = null
+  console.log('Supabase client instance reset')
+}
+
 export function createClient() {
   // Return singleton instance if it exists
   if (clientInstance) {
@@ -39,9 +48,11 @@ Make sure:
     clientInstance = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
-        autoRefreshToken: true,
+        autoRefreshToken: false, // Disabled to prevent hanging on token refresh
         detectSessionInUrl: true,
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        // Add flow type to prevent issues
+        flowType: 'pkce',
       },
     })
     return clientInstance

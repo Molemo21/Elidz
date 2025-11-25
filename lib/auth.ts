@@ -1,6 +1,6 @@
 // Authentication utilities and session management with Supabase
 
-import { createClient } from '@/lib/supabase/client'
+import { createClient, resetClient } from '@/lib/supabase/client'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import type { UserRole } from './db-schema'
@@ -29,9 +29,11 @@ export class AuthService {
         throw new Error('Supabase is not configured. Please check your environment variables.')
       }
       
-      // Create a fresh client for auth to avoid singleton issues
-      // Use the same config as our singleton but create fresh instance for auth
-      // This matches the working test-auth approach
+      // Create a fresh client instance for auth to avoid any singleton issues
+      console.log('Creating Supabase client for auth...')
+      console.log('Supabase URL:', supabaseUrl)
+      console.log('Anon key length:', supabaseKey.length)
+      
       const supabaseAuth = createSupabaseClient<Database>(supabaseUrl, supabaseKey, {
         auth: {
           persistSession: true,
@@ -41,27 +43,44 @@ export class AuthService {
         },
       })
       
-      console.log('Supabase client created for auth')
+      console.log('Supabase client created successfully')
       console.log('Attempting authentication...')
       const startTime = Date.now()
       
       // Direct auth call with timeout protection
       console.log('Calling signInWithPassword...')
+      console.log('Email:', email)
       
-      // Create timeout promise
-      const timeoutPromise = new Promise<never>((_, reject) => {
+      // Create timeout promise with more detailed error
+      const authTimeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
-          reject(new Error('Authentication request timed out. Please check your connection and try again.'))
+          const elapsed = Date.now() - startTime
+          console.error(`Authentication timed out after ${elapsed}ms`)
+          console.error('The auth request may not have been sent. Check:')
+          console.error('1. Browser Network tab for /auth/v1/token request')
+          console.error('2. Browser console for any errors before this timeout')
+          console.error('3. Supabase dashboard to verify the project is active')
+          reject(new Error(`Authentication request timed out after ${elapsed}ms. The request may not have been sent. Check browser Network tab.`))
         }, 30000) // 30 second timeout
       })
       
       // Race between auth and timeout
+      console.log('Creating auth promise...')
       const authPromise = supabaseAuth.auth.signInWithPassword({
         email,
         password,
+      }).then(result => {
+        const elapsed = Date.now() - startTime
+        console.log(`Auth promise resolved after ${elapsed}ms`)
+        return result
+      }).catch(err => {
+        const elapsed = Date.now() - startTime
+        console.error(`Auth promise rejected after ${elapsed}ms:`, err)
+        throw err
       })
       
-      const authResult = await Promise.race([authPromise, timeoutPromise])
+      console.log('Racing auth against timeout...')
+      const authResult = await Promise.race([authPromise, authTimeoutPromise])
       const { data, error } = authResult
       
       const elapsed = Date.now() - startTime
@@ -76,85 +95,107 @@ export class AuthService {
         throw new Error('Failed to sign in - no user data returned')
       }
 
-      console.log('Auth successful, user ID:', data.user.id)
-      console.log('Session token:', data.session?.access_token ? 'Present' : 'Missing')
-      
-      // Ensure session is set for database queries
       if (!data.session) {
         throw new Error('Authentication succeeded but no session was returned. Please try again.')
       }
+
+      console.log('Auth successful, user ID:', data.user.id)
+      console.log('Session token:', data.session?.access_token ? 'Present' : 'Missing')
+      console.log('Access token length:', data.session.access_token?.length || 0)
       
-      // Use the SAME client that was used for auth - it already has the session
-      // Don't switch clients - use the one that authenticated
+      // Verify session is being stored
+      if (typeof window !== 'undefined') {
+        // Wait a moment for Supabase to persist the session
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+        const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || ''
+        const storageKey = `sb-${projectRef}-auth-token`
+        const stored = localStorage.getItem(storageKey)
+        
+        if (stored) {
+          console.log('✓ Session stored in localStorage after auth:', storageKey)
+          try {
+            const parsed = JSON.parse(stored)
+            console.log('  - Access token:', parsed.access_token ? 'Present' : 'Missing')
+            console.log('  - User ID:', parsed.user?.id || 'Missing')
+            console.log('  - Expires at:', parsed.expires_at ? new Date(parsed.expires_at * 1000).toLocaleString() : 'Missing')
+          } catch (e) {
+            console.warn('  - Could not parse session data')
+          }
+        } else {
+          console.warn('⚠ Session NOT found in localStorage immediately after auth!')
+          console.warn('  Expected key:', storageKey)
+          // List all localStorage keys for debugging
+          console.log('  All localStorage keys:', Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)))
+        }
+      }
+      
+      // Use the same client that authenticated - it already has the session
       console.log('Using authenticated client for database query...')
       console.log('User ID to query:', data.user.id)
-      
-      // Verify session is available on the auth client
-      const { data: { session: verifySession }, error: sessionError } = await supabaseAuth.auth.getSession()
-      if (sessionError) {
-        console.error('Error getting session:', sessionError)
-      }
-      if (!verifySession) {
-        throw new Error('Session not available on auth client. Please try logging in again.')
-      }
-      console.log('Session verified on auth client')
-      console.log('Access token present:', !!verifySession.access_token)
-      console.log('Access token length:', verifySession.access_token?.length || 0)
-      console.log('User ID from session:', verifySession.user?.id)
-      console.log('User ID to query:', data.user.id)
-      console.log('IDs match:', verifySession.user?.id === data.user.id)
-
-      // Test database connectivity first with a simple query
-      console.log('Testing database connectivity...')
-      try {
-        const testQuery = await supabaseAuth
-          .from('users')
-          .select('count')
-          .limit(1)
-        console.log('Database connectivity test result:', { hasData: !!testQuery.data, hasError: !!testQuery.error })
-        if (testQuery.error) {
-          console.warn('Database test query error (might be RLS, continuing anyway):', testQuery.error.message)
-        }
-      } catch (testErr) {
-        console.warn('Database connectivity test failed (continuing anyway):', testErr)
-      }
 
       // Add timeout to profile query to prevent hanging
       const profileQueryStartTime = Date.now()
       const profileQueryTimeout = 10000 // 10 seconds
       
-      // Create the query promise using the SAME client that authenticated
-      // This client already has the session token attached
+      // Use the auth client - it already has the session from signInWithPassword
       console.log('Creating profile query with authenticated client...')
+      console.log('Querying user ID:', data.user.id)
       
-      // Try the query with better error handling
+      // Try the query with better error handling and proper timeout
       let profile: any = null
       let profileError: any = null
       
       try {
-        // Create a promise that will reject on timeout
-        const timeoutId = setTimeout(() => {
+        // Create timeout promise that properly rejects
+        const profileTimeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
           const elapsed = Date.now() - profileQueryStartTime
           console.error(`Profile query timeout after ${elapsed}ms`)
+            console.error('This likely indicates an RLS policy issue or network problem.')
           console.error('Check browser Network tab for request to /rest/v1/users')
-          throw new Error(`Profile query timed out after ${elapsed}ms. Check browser Network tab for the actual request status.`)
+            reject(new Error(`Profile query timed out after ${elapsed}ms. This may indicate an RLS policy issue. Check browser Network tab for the actual request status.`))
         }, profileQueryTimeout)
+        })
         
-        // Execute the query
-        const queryResult = await supabaseAuth
+        // Create the query promise
+        console.log('Executing query...')
+        console.log('Query URL will be: /rest/v1/users?select=id,email,role,first_name,last_name,approved&id=eq.' + data.user.id)
+        
+        const queryPromise = supabaseAuth
           .from('users')
           .select('id, email, role, first_name, last_name, approved')
           .eq('id', data.user.id)
           .single()
+          .then(result => {
+            console.log('Query promise resolved with result:', { hasData: !!result.data, hasError: !!result.error })
+            if (result.error) {
+              console.error('Query returned error:', result.error)
+              console.error('Error code:', result.error.code)
+              console.error('Error message:', result.error.message)
+              console.error('Error details:', result.error.details)
+            }
+            return result
+          })
         
-        clearTimeout(timeoutId)
+        // Race between query and timeout
+        console.log('Racing query against timeout...')
+        const queryResult = await Promise.race([queryPromise, profileTimeoutPromise])
+        
         profile = queryResult.data
         profileError = queryResult.error
         
-        console.log('Query completed, checking result...')
+        const elapsed = Date.now() - profileQueryStartTime
+        console.log(`Query completed in ${elapsed}ms, checking result...`)
       } catch (queryErr: any) {
         const elapsed = Date.now() - profileQueryStartTime
         console.error(`Query failed after ${elapsed}ms:`, queryErr)
+        console.error('Error details:', {
+          message: queryErr.message,
+          name: queryErr.name,
+          stack: queryErr.stack
+        })
         
         // If it's a timeout error, re-throw it
         if (queryErr.message?.includes('timed out')) {
@@ -220,6 +261,32 @@ export class AuthService {
         email: profileData.email,
         role: profileData.role,
       })
+
+      // Verify session is stored in localStorage
+      if (typeof window !== 'undefined') {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+        const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || ''
+        const storageKey = `sb-${projectRef}-auth-token`
+        const stored = localStorage.getItem(storageKey)
+        
+        if (stored) {
+          console.log('✓ Session stored in localStorage:', storageKey)
+          console.log('Session data length:', stored.length, 'chars')
+        } else {
+          console.warn('⚠ Session NOT found in localStorage after login!')
+          console.warn('Expected key:', storageKey)
+          // Try to find any auth-token key
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && key.includes('auth-token')) {
+              console.warn('Found alternative key:', key)
+            }
+          }
+        }
+      }
+
+      // Small delay to ensure session is fully persisted
+      await new Promise(resolve => setTimeout(resolve, 100))
 
       return {
         id: profileData.id,
@@ -309,10 +376,105 @@ export class AuthService {
    */
   static async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      const supabase = createClient()
+      let supabase = createClient()
       
-      // First, get the session to ensure it's loaded from storage
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      // Try to get session with timeout - getSession() can hang
+      let session: any = null
+      let sessionError: any = null
+      let useFreshClient = false
+      
+      try {
+        // Add timeout to getSession() call since it can hang
+        const sessionTimeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('getSession() timed out'))
+          }, 5000) // 5 second timeout for session retrieval
+        })
+        
+        const sessionPromise = supabase.auth.getSession()
+        const sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise])
+        session = (sessionResult as any).data?.session
+        sessionError = (sessionResult as any).error
+      } catch (timeoutError: any) {
+        // getSession() timed out - reset client and try reading directly from localStorage as fallback
+        console.warn('getSession() timed out, resetting client and trying localStorage fallback...')
+        resetClient() // Reset the stuck client
+        
+        // Create a fresh client for the fallback
+        supabase = createClient()
+        useFreshClient = true
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Find the Supabase auth token key in localStorage
+            // Format: sb-{project-ref}-auth-token
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+            const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || ''
+            const storageKey = `sb-${projectRef}-auth-token`
+            
+            // Also try to find any key that matches the pattern
+            let stored = localStorage.getItem(storageKey)
+            if (!stored) {
+              // Fallback: search for any key containing 'auth-token'
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && key.includes('auth-token')) {
+                  stored = localStorage.getItem(key)
+                  console.log(`Found session in localStorage key: ${key}`)
+                  break
+                }
+              }
+            }
+            
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              if (parsed && parsed.access_token && parsed.user) {
+                // Create a minimal session object from localStorage
+                session = {
+                  access_token: parsed.access_token,
+                  refresh_token: parsed.refresh_token,
+                  expires_at: parsed.expires_at,
+                  expires_in: parsed.expires_in,
+                  token_type: parsed.token_type,
+                  user: parsed.user,
+                }
+                console.log('Session recovered from localStorage fallback')
+                
+                // Try to set the session on the fresh client so it can be used for queries
+                // Add timeout since setSession() might also hang
+                try {
+                  const setSessionTimeoutPromise = new Promise<never>((_, reject) => {
+                    setTimeout(() => {
+                      reject(new Error('setSession() timed out'))
+                    }, 5000)
+                  })
+                  
+                  const setSessionPromise = supabase.auth.setSession({
+                    access_token: parsed.access_token,
+                    refresh_token: parsed.refresh_token,
+                  })
+                  
+                  await Promise.race([setSessionPromise, setSessionTimeoutPromise])
+                  console.log('Session set on fresh client from localStorage')
+                  // Small delay to ensure session is fully initialized
+                  await new Promise(resolve => setTimeout(resolve, 100))
+                } catch (setSessionError: any) {
+                  console.warn('Failed to set session on client (continuing anyway):', setSessionError.message)
+                  // Continue anyway - we have the session data and can use it directly
+                }
+              }
+            }
+          } catch (storageError) {
+            console.error('Failed to read session from localStorage:', storageError)
+          }
+        }
+        
+        // If we still don't have a session, return null
+        if (!session) {
+          console.error('Could not retrieve session - getSession() timed out and localStorage fallback failed')
+          return null
+        }
+      }
       
       if (sessionError) {
         console.log('Session error:', sessionError.message)
@@ -324,12 +486,36 @@ export class AuthService {
         return null
       }
       
-      // Then get the user to verify the session is valid
-      const { data: { user }, error } = await supabase.auth.getUser()
+      // Use user from session if available (from localStorage fallback)
+      // Otherwise try getUser() with timeout
+      let user = session.user
+      
+      if (!user) {
+        // Try getUser() with timeout since it can also hang
+        try {
+          const getUserTimeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('getUser() timed out'))
+            }, 5000)
+          })
+          
+          const getUserPromise = supabase.auth.getUser()
+          const getUserResult = await Promise.race([getUserPromise, getUserTimeoutPromise])
+          user = (getUserResult as any).data?.user
+          const error = (getUserResult as any).error
       
       if (error) {
         console.log('Failed to get user:', error.message)
         return null
+          }
+        } catch (getUserError: any) {
+          console.warn('getUser() timed out, using user from session:', getUserError.message)
+          // Use user from session if available
+          if (!session.user) {
+            return null
+          }
+          user = session.user
+        }
       }
       
       if (!user) {
@@ -337,32 +523,150 @@ export class AuthService {
         return null
       }
 
-      // Get user profile
-      const { data: profile, error: profileError } = await (supabase as any)
-        .from('users')
-        .select('id, email, role, first_name, last_name, approved')
-        .eq('id', user.id)
-        .single()
+      // Get user profile with timeout protection and better error handling
+      const profileQueryStartTime = Date.now()
+      const profileQueryTimeout = 5000 // Reduced to 5 seconds for faster failure
+      
+      console.log('Getting user profile for:', user.id)
+      
+      let profile: any = null
+      let profileError: any = null
+      
+      try {
+        // Create timeout promise that rejects after timeout
+        const profileTimeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            const elapsed = Date.now() - profileQueryStartTime
+            reject(new Error(`Profile query timed out after ${elapsed}ms`))
+          }, profileQueryTimeout)
+        })
+        
+        // Create the query promise
+        // Use maybeSingle() instead of single() to prevent 406 errors when no row found
+        const queryPromise = supabase
+          .from('users')
+          .select('id, email, role, first_name, last_name, approved')
+          .eq('id', user.id)
+          .maybeSingle()
+        
+        // Race between query and timeout - timeout will win if query takes too long
+        const queryResult = await Promise.race([queryPromise, profileTimeoutPromise])
+        
+        profile = queryResult.data
+        profileError = queryResult.error
+        
+        const elapsed = Date.now() - profileQueryStartTime
+        if (profileError) {
+          console.warn(`Profile query completed with error in ${elapsed}ms:`, profileError.message)
+        } else {
+          console.log(`Profile query completed successfully in getCurrentUser in ${elapsed}ms`)
+        }
+      } catch (queryErr: any) {
+        const elapsed = Date.now() - profileQueryStartTime
+        
+        // Check if it's a timeout error
+        if (queryErr.message?.includes('timed out')) {
+          console.warn(`Profile query timed out after ${elapsed}ms - returning minimal user from session`)
+          console.warn('Possible causes: RLS policy issues, network problems, or session token issues')
+          console.warn('Returning minimal user to allow app to function while profile loads in background')
+          
+          // Return minimal user immediately on timeout - don't wait
+          if (user && user.email) {
+            const minimalUser = {
+              id: user.id,
+              email: user.email,
+              role: 'smme' as UserRole, // Default role - will be updated when profile loads
+              name: user.email.split('@')[0], // Use email prefix as fallback name
+              approved: false, // Default to false for safety
+            }
+            console.warn('Returning minimal user:', minimalUser.email)
+            return minimalUser
+          }
+          console.error('Cannot return minimal user - no user email available')
+          return null
+        }
+        
+        console.error(`Profile query failed in getCurrentUser after ${elapsed}ms:`, queryErr)
+        // Otherwise, treat it as a profile error
+        profileError = queryErr
+      }
 
       if (profileError) {
         console.error('Profile fetch error:', profileError)
         if (profileError.code === 'PGRST116') {
           console.error('User profile not found in database')
+          // Return minimal user from session if profile not found
+          if (user && user.email) {
+            console.warn('Returning minimal user from session since profile not found')
+            return {
+              id: user.id,
+              email: user.email,
+              role: 'smme' as UserRole,
+              name: user.email.split('@')[0],
+              approved: false,
+            }
+          }
           return null
         }
         if (profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
           console.error('RLS policy error - user might not have permission')
+          // Return minimal user from session if RLS blocks
+          if (user && user.email) {
+            console.warn('Returning minimal user from session since RLS blocked profile query')
+            return {
+              id: user.id,
+              email: user.email,
+              role: 'smme' as UserRole,
+              name: user.email.split('@')[0],
+              approved: false,
+            }
+          }
           return null
+        }
+        // For other errors, try to return minimal user
+        if (user && user.email) {
+          console.warn('Returning minimal user from session due to profile error')
+          return {
+            id: user.id,
+            email: user.email,
+            role: 'smme' as UserRole,
+            name: user.email.split('@')[0],
+            approved: false,
+          }
         }
         return null
       }
 
       if (!profile) {
+        // No profile but we have session user - return minimal user
+        if (user && user.email) {
+          console.warn('No profile found but session exists - returning minimal user')
+          return {
+            id: user.id,
+            email: user.email,
+            role: 'smme' as UserRole,
+            name: user.email.split('@')[0],
+            approved: false,
+          }
+        }
         return null
       }
 
       // Type guard to ensure profile has required fields
-      if (!profile.id || !profile.email || !profile.role || !profile.first_name || !profile.last_name) {
+      if (!profile.id || !profile.email || !profile.role) {
+        // If profile is missing required fields, return minimal user from session
+        if (user && user.email) {
+          console.warn('Profile missing required fields - returning minimal user from session')
+          return {
+            id: user.id,
+            email: user.email,
+            role: (profile.role || 'smme') as UserRole,
+            name: profile.first_name && profile.last_name 
+              ? `${profile.first_name} ${profile.last_name}` 
+              : user.email.split('@')[0],
+            approved: profile.approved ?? false,
+          }
+        }
         return null
       }
 
@@ -370,7 +674,9 @@ export class AuthService {
         id: profile.id,
         email: profile.email,
         role: profile.role,
-        name: `${profile.first_name} ${profile.last_name}`,
+        name: profile.first_name && profile.last_name 
+          ? `${profile.first_name} ${profile.last_name}` 
+          : profile.email.split('@')[0],
         approved: profile.approved ?? false,
       }
     } catch (error) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { AuthService, type AuthUser } from "@/lib/auth"
@@ -10,6 +10,11 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  
+  // Use refs to prevent multiple simultaneous calls
+  const isLoadingUserRef = useRef(false)
+  const lastLoadTimeRef = useRef(0)
+  const LOAD_DEBOUNCE_MS = 3000 // Don't load more than once every 3 seconds
 
   // Ensure we're mounted before accessing browser APIs
   useEffect(() => {
@@ -59,20 +64,125 @@ export function useAuth() {
   }, [router, mounted])
 
   const loadUser = async () => {
+    // Prevent multiple simultaneous calls
+    if (isLoadingUserRef.current) {
+      console.log('loadUser already in progress, skipping...')
+      return
+    }
+    
+    // Debounce rapid calls
+    const now = Date.now()
+    if (now - lastLoadTimeRef.current < LOAD_DEBOUNCE_MS) {
+      console.log('loadUser called too soon, debouncing...')
+      return
+    }
+    lastLoadTimeRef.current = now
+    
+    isLoadingUserRef.current = true
     try {
       setLoading(true)
       const currentUser = await AuthService.getCurrentUser()
-      setUser(currentUser)
       
-      if (!currentUser) {
-        console.log('No user found - user may not be logged in')
-      } else {
+      if (currentUser) {
+        // Got user successfully
+        setUser(currentUser)
         console.log('User loaded successfully:', currentUser.email, currentUser.role)
+      } else {
+        // getCurrentUser returned null - check localStorage directly (don't call getSession() which will timeout)
+        // This prevents overwriting a successful login when profile query times out
+        let hasSession = false
+        
+        if (typeof window !== 'undefined') {
+          try {
+            // Check localStorage directly to avoid getSession() timeout
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+            const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || ''
+            const storageKey = `sb-${projectRef}-auth-token`
+            
+            let stored = localStorage.getItem(storageKey)
+            if (!stored) {
+              // Fallback: search for any key containing 'auth-token'
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && key.includes('auth-token')) {
+                  stored = localStorage.getItem(key)
+                  break
+                }
+              }
+            }
+            
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              if (parsed && parsed.access_token && parsed.user) {
+                hasSession = true
+                console.warn('Profile query failed but session exists in localStorage - keeping current user if exists')
+                // Only set to null if we don't already have a user
+                // This preserves the user state from successful login
+                if (!user) {
+                  setUser(null)
+                }
+              } else {
+                console.log('No valid session in localStorage - clearing user')
+                setUser(null)
+              }
+            } else {
+              console.log('No session found in localStorage - clearing user')
+              setUser(null)
+            }
+          } catch (storageError) {
+            console.error('Error checking localStorage:', storageError)
+            // If we can't check localStorage, clear user as fallback
+            setUser(null)
+          }
+        } else {
+          // Not in browser - clear user
+          setUser(null)
+        }
       }
     } catch (error) {
       console.error('Error loading user:', error)
-      setUser(null)
+      // Check localStorage directly instead of calling getSession()
+      let hasSession = false
+      
+      if (typeof window !== 'undefined') {
+        try {
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+          const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || ''
+          const storageKey = `sb-${projectRef}-auth-token`
+          
+          let stored = localStorage.getItem(storageKey)
+          if (!stored) {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (key && key.includes('auth-token')) {
+                stored = localStorage.getItem(key)
+                break
+              }
+            }
+          }
+          
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            if (parsed && parsed.access_token && parsed.user) {
+              hasSession = true
+              console.warn('Error loading user but session exists in localStorage - keeping current user if exists')
+              if (!user) {
+                setUser(null)
+              }
+            } else {
+              setUser(null)
+            }
+          } else {
+            setUser(null)
+          }
+        } catch (storageError) {
+          setUser(null)
+        }
+      } else {
+        setUser(null)
+      }
     } finally {
+      isLoadingUserRef.current = false
       setLoading(false)
     }
   }

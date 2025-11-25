@@ -161,6 +161,7 @@
     --color-orange-600: #f05100;
     --color-yellow-50: #fefce8;
     --color-yellow-900: #733e0a;
+    --color-green-400: #05df72;
     --color-black: #000;
     --color-white: #fff;
     --spacing: .25rem;
@@ -221,6 +222,7 @@
       --color-orange-600: lab(57.1026% 64.2584 89.8886);
       --color-yellow-50: lab(98.6846% -1.79058 9.77662);
       --color-yellow-900: lab(32.3865% 21.1274 38.5958);
+      --color-green-400: lab(78.503% -64.9265 39.7492);
     }
   }
 }
@@ -1103,6 +1105,10 @@
     max-height: var(--radix-select-content-available-height);
   }
 
+  .max-h-96 {
+    max-height: calc(var(--spacing) * 96);
+  }
+
   .max-h-\[300px\] {
     max-height: 300px;
   }
@@ -1465,6 +1471,10 @@
 
   .list-inside {
     list-style-position: inside;
+  }
+
+  .list-decimal {
+    list-style-type: decimal;
   }
 
   .list-disc {
@@ -2533,6 +2543,10 @@
     .text-foreground\/50 {
       color: color-mix(in oklab, var(--foreground) 50%, transparent);
     }
+  }
+
+  .text-green-400 {
+    color: var(--color-green-400);
   }
 
   .text-muted-foreground {

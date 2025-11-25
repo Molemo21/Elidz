@@ -61,7 +61,27 @@ export default function LoginPage() {
         }
       } catch (error) {
         console.error('Login error:', error)
-        const errorMessage = error instanceof Error ? error.message : "Invalid credentials. Please try again."
+        let errorMessage = "Invalid credentials. Please try again."
+        
+        if (error instanceof Error) {
+          errorMessage = error.message
+          
+          // Provide more helpful error messages
+          if (error.message.includes('Supabase is not configured')) {
+            errorMessage = "Configuration error: Supabase environment variables are missing. Please check your .env file."
+          } else if (error.message.includes('timed out')) {
+            errorMessage = "Connection timeout. Please check your internet connection and try again."
+          } else if (error.message.includes('User profile not found')) {
+            errorMessage = "User account not found. Please contact support or try registering a new account."
+          } else if (error.message.includes('pending admin approval')) {
+            errorMessage = "Your account is pending admin approval. You will be notified once approved."
+          } else if (error.message.includes('Invalid email or password')) {
+            errorMessage = "Invalid email or password. Please check your credentials and try again."
+          } else if (error.message.includes('RLS policy')) {
+            errorMessage = "Access denied. Please contact support if this issue persists."
+          }
+        }
+        
         toast({
           title: "Login failed",
           description: errorMessage,
@@ -81,12 +101,15 @@ export default function LoginPage() {
     try {
       await Promise.race([loginPromise, timeoutPromise])
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Login failed. Please try again."
-      toast({
-        title: "Login failed",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      // Error already handled in loginPromise catch block
+      // This catch is mainly for timeout errors
+      if (error instanceof Error && error.message.includes('timed out')) {
+        toast({
+          title: "Login timeout",
+          description: "The login request took too long. Please check your connection and try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId)

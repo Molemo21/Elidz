@@ -1,195 +1,93 @@
-[00:00:06.690] Server  WARN     ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
-[00:00:07.565] Server  LOG      ✓ Ready in 5.7s
-[00:18:34.850] Server  LOG      ○ Compiling / ...
-[00:18:51.348] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:18:52.244] Browser LOG     No session found
-[00:18:52.244] Browser LOG     No user found - user may not be logged in
-[00:18:53.004] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:18:53.004] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:18:53.004] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764079515423}
-[00:24:50.392] Server  LOG      ✓ Compiled in 866ms
-[00:24:54.616] Server  LOG      ✓ Compiled in 1636ms
-[00:25:03.892] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:25:05.498] Browser LOG     No session found
-[00:25:05.498] Browser LOG     No user found - user may not be logged in
-[00:25:05.498] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:25:05.498] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:25:05.498] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764079887793}
-[00:30:34.751] Server  LOG      ✓ Compiled in 1080ms
-[00:30:38.494] Browser LOG     No session found
-[00:30:38.494] Browser LOG     No user found - user may not be logged in
-[00:30:39.755] Server  LOG      ✓ Compiled in 401ms
-[00:30:40.497] Browser LOG     No session found
-[00:30:40.497] Browser LOG     No user found - user may not be logged in
-[00:30:42.361] Server  LOG      ✓ Compiled in 441ms
-[00:30:53.849] Server  LOG      ✓ Compiled in 943ms
-[00:30:55.639] Server  LOG      ✓ Compiled in 758ms
-[00:30:57.594] Server  LOG      ✓ Compiled in 370ms
-[00:31:22.603] Server  LOG      ✓ Compiled in 2.1s
-[00:31:36.372] Server  LOG      ✓ Compiled in 437ms
-[00:32:25.148] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:32:25.866] Browser LOG     No session found
-[00:32:25.866] Browser LOG     No user found - user may not be logged in
-[00:32:25.866] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:32:25.866] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:32:25.866] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764080328290}
-[00:36:17.081] Server  LOG      ✓ Compiled in 816ms
-[00:36:30.495] Server  LOG      ✓ Compiled in 596ms
-[00:36:44.121] Server  LOG      ✓ Compiled in 632ms
-[00:37:10.135] Server  LOG      ✓ Compiled in 23.1s
-[00:37:29.349] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:37:31.192] Browser LOG     No session found
-[00:37:31.192] Browser LOG     No user found - user may not be logged in
-[00:37:31.192] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:37:31.192] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:37:31.192] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764080633615}
-[00:40:37.089] Server  LOG      ✓ Compiled in 1123ms
-[00:40:46.914] Server  LOG      ✓ Compiled in 1691ms
-[00:40:55.927] Server  LOG      ✓ Compiled in 585ms
-[00:40:58.680] Server  LOG      ✓ Compiled in 1199ms
-[00:41:03.189] Server  LOG      ✓ Compiled in 1145ms
-[00:41:07.487] Browser ERROR   ./app/page.tsx:237:1
-Parsing ecmascript source code failed
-  235 |     </div>
-  236 |   )
-> 237 | }
-      | ^
-  238 |
-
-Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
-
-Import traces:
-  Client Component Browser:
-    ./app/page.tsx [Client Component Browser]
-    ./app/page.tsx [Server Component]
-
-  Client Component SSR:
-    ./app/page.tsx [Client Component SSR]
-    ./app/page.tsx [Server Component]
-[00:41:22.481] Server  LOG      ✓ Compiled in 1209ms
-[00:41:24.454] Server  LOG      ✓ Compiled in 882ms
-[00:41:27.677] Server  LOG      ✓ Compiled in 1167ms
-[00:41:29.498] Browser LOG     No session found
-[00:41:29.498] Browser LOG     No user found - user may not be logged in
-[00:41:38.135] Server  LOG      ✓ Compiled in 352ms
-[00:41:42.675] Server  LOG      ✓ Compiled in 572ms
-[00:42:16.611] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:42:17.468] Browser LOG     No session found
-[00:42:17.468] Browser LOG     No user found - user may not be logged in
-[00:42:17.903] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:42:17.903] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:42:17.903] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764080920329}
-[00:42:21.705] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:42:22.490] Browser LOG     No session found
-[00:42:22.490] Browser LOG     No user found - user may not be logged in
-[00:42:22.490] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:42:22.490] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:42:22.490] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764080924915}
-[00:42:26.359] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:42:26.963] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:42:26.963] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:42:26.963] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764080929384}
-[00:42:26.963] Browser LOG     No session found
-[00:42:26.963] Browser LOG     No user found - user may not be logged in
-[00:42:40.529] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:42:41.133] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:42:41.133] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:42:41.133] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764080943558}
-[00:42:41.133] Browser LOG     No session found
-[00:42:41.133] Browser LOG     No user found - user may not be logged in
-[00:45:21.735] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:45:26.266] Browser LOG     No session found
-[00:45:26.266] Browser LOG     No user found - user may not be logged in
-[00:45:26.266] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:45:26.266] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:45:26.267] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764081108692}
-[00:46:03.672] Server  LOG      ✓ Compiled in 7.8s
-[00:46:11.250] Server  LOG      ✓ Compiled in 1909ms
-[00:46:11.300] Browser LOG     No session found
-[00:46:11.300] Browser LOG     No user found - user may not be logged in
-[00:46:15.393] Server  LOG      ✓ Compiled in 892ms
-[00:46:21.488] Server  LOG      ✓ Compiled in 1570ms
-[00:46:41.040] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:46:42.189] Server  LOG      ✓ Compiled in 89ms
-[00:46:42.635] Browser LOG     No session found
-[00:46:42.635] Browser LOG     No user found - user may not be logged in
-[00:46:42.635] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:46:42.635] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:46:42.635] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764081185057}
-[00:51:57.371] Server  LOG      ✓ Compiled in 2.2s
-[00:52:07.803] Server  LOG      ✓ Compiled in 4.9s
-[00:52:27.435] Server  WARN     ⚠ Fast Refresh had to perform a full reload due to a runtime error.
-[00:52:29.757] Browser ERROR   uncaughtError: ReferenceError: showImage is not defined
-[00:52:33.401] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764081532589}
-[00:52:33.401] Browser LOG     No session found
-[00:52:33.402] Browser LOG     No user found - user may not be logged in
-[00:52:37.098] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:52:39.529] Browser LOG     No session found
-[00:52:39.529] Browser LOG     No user found - user may not be logged in
-[00:52:39.529] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[00:52:39.529] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[00:52:39.529] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764081540988}
-[00:53:36.523] Server  LOG      ✓ Compiled in 541ms
-[00:53:38.536] Browser ERROR   unhandledRejection: AbortError: The play() request was interrupted because video-only background media was paused to save power. https://goo.gl/LdLk22
-[00:53:45.499] Server  LOG      ✓ Compiled in 1012ms
-[00:55:05.346] Server  LOG      ✓ Compiled in 394ms
-[01:06:27.792] Server  LOG      ✓ Compiled in 3.2s
-[01:06:51.356] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[01:06:52.549] Browser LOG     No session found
-[01:06:52.549] Browser LOG     No user found - user may not be logged in
-[01:06:53.005] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[01:06:53.005] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[01:06:53.005] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764082395433}
-[01:14:36.019] Server  LOG      ✓ Compiled in 802ms
-[01:19:03.442] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[01:19:05.229] Browser LOG     No session found
-[01:19:05.229] Browser LOG     No user found - user may not be logged in
-[01:19:05.431] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[01:19:05.431] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[01:19:05.431] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083127810}
-[01:19:13.903] Server  LOG      ○ Compiling /register ...
-[01:19:21.143] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/register color: rgb(120, 120, 120) color: inherit {"dp":"/register","o":"http://localhost:3000/register","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083143498}
-[01:19:21.143] Browser LOG     No session found
-[01:19:21.143] Browser LOG     No user found - user may not be logged in
-[01:26:51.355] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083593768}
-[01:27:28.680] Server  LOG      ✓ Compiled in 2.5s
-[01:27:31.345] Server  LOG      ✓ Compiled in 1565ms
-[01:27:42.083] Server  LOG      ✓ Compiled in 6.6s
-[01:27:56.156] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[01:27:58.364] Browser LOG     No session found
-[01:27:58.364] Browser LOG     No user found - user may not be logged in
-[01:27:58.930] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[01:27:58.930] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[01:27:58.930] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083661351}
-[01:28:14.205] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[01:28:14.641] Browser LOG     No session found
-[01:28:14.641] Browser LOG     No user found - user may not be logged in
-[01:28:14.641] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[01:28:14.641] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/api/docs","route":"/api/docs"}
-[01:28:14.641] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/api/docs color: rgb(120, 120, 120) color: inherit {"dp":"/api/docs","o":"http://localhost:3000/api/docs","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083677061}
-[01:28:17.232] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[01:28:17.910] Browser LOG     No session found
-[01:28:17.911] Browser LOG     No user found - user may not be logged in
-[01:28:17.911] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[01:28:17.911] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[01:28:17.911] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083680326}
-[01:28:27.167] Server  LOG      ○ Compiling /opportunities ...
-[01:28:30.349] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/opportunities color: rgb(120, 120, 120) color: inherit {"dp":"/opportunities","o":"http://localhost:3000/opportunities","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083692733}
-[01:28:32.270] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083694640}
-[01:28:32.270] Browser LOG     No session found
-[01:28:32.270] Browser LOG     No user found - user may not be logged in
-[01:28:35.901] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083698248}
-[01:31:16.817] Server  LOG      ✓ Compiled in 1260ms
-[01:31:41.875] Server  LOG      ✓ Compiled in 791ms
-[01:32:41.207] Server  LOG      ✓ Compiled in 1469ms
-[01:33:14.086] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/opportunities color: rgb(120, 120, 120) color: inherit {"dp":"/opportunities","o":"http://localhost:3000/opportunities","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083976144}
-[01:33:16.276] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764083978410}
-[01:33:16.276] Browser LOG     No session found
-[01:33:16.276] Browser LOG     No user found - user may not be logged in
-[01:34:18.937] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764084041178}
-[01:41:42.023] Server  LOG      ✓ Compiled in 1642ms
-[01:47:20.721] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/register color: rgb(120, 120, 120) color: inherit {"dp":"/register","o":"http://localhost:3000/register","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764084822976}
-[01:47:20.722] Browser LOG     No session found
-[01:47:20.722] Browser LOG     No user found - user may not be logged in
-[01:52:27.841] Server  LOG      ✓ Compiled in 1697ms
-[01:52:39.942] Server  LOG      ✓ Compiled in 1215ms
+[00:00:05.721] Server  WARN     ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+[00:00:07.296] Server  LOG      ✓ Ready in 5.6s
+[00:00:16.738] Server  LOG      ○ Compiling / ...
+[00:00:29.981] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:31.247] Browser LOG     No session found
+[00:00:31.247] Browser LOG     No user found - user may not be logged in
+[00:00:31.568] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
+[00:00:31.568] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
+[00:00:31.568] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764085537425}
+[00:01:04.849] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/register color: rgb(120, 120, 120) color: inherit {"dp":"/register","o":"http://localhost:3000/register","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764085570632}
+[00:01:04.849] Browser LOG     No session found
+[00:01:04.849] Browser LOG     No user found - user may not be logged in
+[00:14:37.591] Server  LOG      ✓ Compiled in 5.5s
+[00:14:39.105] Server  LOG      ✓ Compiled in 1636ms
+[00:14:44.371] Server  LOG      ✓ Compiled in 973ms
+[00:19:58.686] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764086704443}
+[00:20:45.018] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/register color: rgb(120, 120, 120) color: inherit {"dp":"/register","o":"http://localhost:3000/register","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764086750786}
+[00:20:45.018] Browser LOG     No session found
+[00:20:45.036] Browser LOG     No user found - user may not be logged in
+[00:29:30.422] Server  LOG      ○ Compiling /login ...
+[00:29:34.341] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764087279988}
+[00:29:34.341] Browser LOG     No session found
+[00:29:34.341] Browser LOG     No user found - user may not be logged in
+[00:29:56.414] Browser LOG     Attempting login for: user@smme.com
+[00:29:56.414] Browser LOG     AuthService.login called for: user@smme.com
+[00:29:56.414] Browser WARN    GoTrueClient@sb-nxdjdkoamvertmzgslyq-auth-token:1 (2.84.0) 2025-11-25T16:15:02.269Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:29:56.414] Browser LOG     Supabase client created for auth
+[00:29:56.414] Browser LOG     Attempting authentication...
+[00:29:56.414] Browser LOG     Calling signInWithPassword...
+[00:29:57.275] Browser LOG     Auth call completed in 821ms
+[00:29:57.275] Browser ERROR   Supabase auth error: {"__isAuthError":true,"code":"invalid_credentials","name":"AuthApiError","status":400}
+[00:29:57.275] Browser ERROR   AuthService.login error: {}
+[00:29:57.275] Browser ERROR   Login error: {}
+[00:30:11.880] Browser LOG     Attempting login for: user@smme.com
+[00:30:11.880] Browser LOG     AuthService.login called for: user@smme.com
+[00:30:11.880] Browser WARN    GoTrueClient@sb-nxdjdkoamvertmzgslyq-auth-token:2 (2.84.0) 2025-11-25T16:15:17.729Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:30:11.880] Browser LOG     Supabase client created for auth
+[00:30:11.880] Browser LOG     Attempting authentication...
+[00:30:11.880] Browser LOG     Calling signInWithPassword...
+[00:30:12.164] Browser LOG     Auth call completed in 294ms
+[00:30:12.165] Browser ERROR   Supabase auth error: {"__isAuthError":true,"code":"invalid_credentials","name":"AuthApiError","status":400}
+[00:30:12.165] Browser ERROR   AuthService.login error: {}
+[00:30:12.165] Browser ERROR   Login error: {}
+[00:30:32.394] Browser LOG     Attempting login for: user@smme.com
+[00:30:32.394] Browser LOG     AuthService.login called for: user@smme.com
+[00:30:32.394] Browser WARN    GoTrueClient@sb-nxdjdkoamvertmzgslyq-auth-token:3 (2.84.0) 2025-11-25T16:15:38.242Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:30:32.394] Browser LOG     Supabase client created for auth
+[00:30:32.394] Browser LOG     Attempting authentication...
+[00:30:32.394] Browser LOG     Calling signInWithPassword...
+[00:30:32.692] Browser LOG     Auth call completed in 306ms
+[00:30:32.692] Browser ERROR   Supabase auth error: {"__isAuthError":true,"code":"invalid_credentials","name":"AuthApiError","status":400}
+[00:30:32.692] Browser ERROR   AuthService.login error: {}
+[00:30:32.693] Browser ERROR   Login error: {}
+[00:31:12.911] Browser LOG     Attempting login for: user@smme.com
+[00:31:12.911] Browser LOG     AuthService.login called for: user@smme.com
+[00:31:12.911] Browser WARN    GoTrueClient@sb-nxdjdkoamvertmzgslyq-auth-token:4 (2.84.0) 2025-11-25T16:16:18.768Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:31:12.911] Browser LOG     Supabase client created for auth
+[00:31:12.911] Browser LOG     Attempting authentication...
+[00:31:12.911] Browser LOG     Calling signInWithPassword...
+[00:31:13.299] Browser LOG     Auth call completed in 394ms
+[00:31:13.299] Browser ERROR   Supabase auth error: {"__isAuthError":true,"code":"invalid_credentials","name":"AuthApiError","status":400}
+[00:31:13.299] Browser ERROR   AuthService.login error: {}
+[00:31:13.299] Browser ERROR   Login error: {}
+[00:34:10.006] Server  LOG      ✓ Compiled in 2.7s
+[00:34:12.227] Server  LOG      ✓ Compiled in 1015ms
+[00:35:27.347] Browser LOG     Attempting login for: user@smme.com
+[00:35:27.348] Browser LOG     AuthService.login called for: user@smme.com
+[00:35:27.349] Browser WARN    GoTrueClient@sb-nxdjdkoamvertmzgslyq-auth-token:5 (2.84.0) 2025-11-25T16:20:33.197Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:35:27.349] Browser LOG     Supabase client created for auth
+[00:35:27.349] Browser LOG     Attempting authentication...
+[00:35:27.349] Browser LOG     Calling signInWithPassword...
+[00:35:28.037] Browser LOG     Auth call completed in 683ms
+[00:35:28.037] Browser ERROR   Supabase auth error: {"__isAuthError":true,"code":"invalid_credentials","name":"AuthApiError","status":400}
+[00:35:28.037] Browser ERROR   AuthService.login error: {}
+[00:35:28.037] Browser ERROR   Login error: {}
+[00:35:40.257] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764087645974}
+[00:35:51.001] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/register color: rgb(120, 120, 120) color: inherit {"dp":"/register","o":"http://localhost:3000/register","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764087656755}
+[00:35:51.001] Browser LOG     No session found
+[00:35:51.001] Browser LOG     No user found - user may not be logged in
+[00:35:56.734] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/login color: rgb(120, 120, 120) color: inherit {"dp":"/login","o":"http://localhost:3000/login","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764087662516}
+[00:35:56.734] Browser LOG     No session found
+[00:35:56.734] Browser LOG     No user found - user may not be logged in
+[00:36:31.885] Browser LOG     Attempting login for: admin@elidz.com
+[00:36:31.885] Browser LOG     AuthService.login called for: admin@elidz.com
+[00:36:31.885] Browser WARN    GoTrueClient@sb-nxdjdkoamvertmzgslyq-auth-token:6 (2.84.0) 2025-11-25T16:21:37.735Z Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+[00:36:31.885] Browser LOG     Supabase client created for auth
+[00:36:31.886] Browser LOG     Attempting authentication...
+[00:36:31.886] Browser LOG     Calling signInWithPassword...
+[00:36:32.353] Browser LOG     Auth call completed in 478ms
+[00:36:32.353] Browser ERROR   Supabase auth error: {"__isAuthError":true,"code":"invalid_credentials","name":"AuthApiError","status":400}
+[00:36:32.353] Browser ERROR   AuthService.login error: {}
+[00:36:32.353] Browser ERROR   Login error: {}
+[00:37:15.553] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.5.0","sv":"0.1.3","ts":1764087741234}

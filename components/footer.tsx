@@ -1,10 +1,18 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Building2, Mail, Phone, MapPin, ExternalLink } from "lucide-react"
 
 export function Footer() {
+  const pathname = usePathname()
+  
+  // Hide footer on register and login pages
+  if (pathname === "/register" || pathname === "/login") {
+    return null
+  }
+  
   return (
     <footer className="bg-black text-white border-t border-white/10">
       <div className="container mx-auto px-4 py-12">

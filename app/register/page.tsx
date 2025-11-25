@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -92,8 +93,20 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-accent/30 px-4 py-12">
-        <Card className="w-full max-w-md">
+      <div className="relative min-h-[calc(100vh-80px)] flex items-center justify-center px-4 py-12">
+        {/* Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/land.jpg)',
+          }}
+        />
+        
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-black/70" />
+        
+        {/* Content */}
+        <Card className="relative z-10 w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
@@ -115,11 +128,35 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-accent/30 px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Join ELIDZ-STP to discover funding opportunities for your business</CardDescription>
+    <div className="relative min-h-screen flex items-center justify-center px-4 py-8">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: 'url(/land.jpg)',
+        }}
+      />
+      
+      {/* Dark Overlay */}
+      <div className="absolute inset-0 bg-black/70" />
+      
+      {/* Content */}
+      <Card className="relative z-10 w-full max-w-md">
+        {/* Logo */}
+        <div className="flex justify-center mb-4 pt-4">
+          <Image
+            src="/home.png"
+            alt="ELIDZ-STP"
+            width={200}
+            height={67}
+            className="h-14 w-auto object-contain"
+            priority
+          />
+        </div>
+        
+        <CardHeader className="space-y-1 pb-4">
+          <CardTitle className="text-2xl font-bold text-center">Create an Account</CardTitle>
+          <CardDescription className="text-center">Join ELIDZ-STP to discover funding opportunities for your business</CardDescription>
         </CardHeader>
         <CardContent>
           <Alert className="mb-6">

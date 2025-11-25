@@ -1,6 +1,6 @@
 // Mock data for development and demo purposes
 
-import type { FundingOpportunity, Match, Application } from "./db-schema"
+import type { FundingOpportunity, Match, Application, Notification } from "./db-schema"
 
 export const mockFundingOpportunities: FundingOpportunity[] = [
   {
@@ -119,5 +119,44 @@ export const mockApplications: Application[] = [
     signature: null,
     created_at: new Date("2025-03-16"),
     updated_at: new Date("2025-03-16"),
+  },
+]
+
+export const mockNotifications: Notification[] = [
+  {
+    id: "notif1",
+    user_id: "user1",
+    type: "match",
+    title: "New Funding Match Found!",
+    message: "We found a 92% match with Green Energy Innovation Grant. This opportunity aligns perfectly with your business profile.",
+    read: false,
+    created_at: new Date("2025-03-20T10:30:00"),
+  },
+  {
+    id: "notif2",
+    user_id: "user1",
+    type: "application_completed",
+    title: "Application Ready for Review",
+    message: "Your application for Green Energy Innovation Grant has been auto-completed by AI. Please review and submit.",
+    read: false,
+    created_at: new Date("2025-03-19T14:20:00"),
+  },
+  {
+    id: "notif3",
+    user_id: "user1",
+    type: "status_update",
+    title: "Application Status Updated",
+    message: "Your application for Technology Startup Accelerator has been submitted and is now under review.",
+    read: true,
+    created_at: new Date("2025-03-18T09:15:00"),
+  },
+  {
+    id: "notif4",
+    user_id: "user1",
+    type: "match",
+    title: "New Funding Opportunity",
+    message: "A new funding opportunity matching your criteria has been added: Manufacturing Expansion Loan.",
+    read: true,
+    created_at: new Date("2025-03-17T16:45:00"),
   },
 ]

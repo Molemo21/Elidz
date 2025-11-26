@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { Providers } from "@/components/providers"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Toaster } from "@/components/ui/toaster"
@@ -24,11 +25,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`} suppressHydrationWarning>
-        <Header />
-        <main className="min-h-[calc(100vh-80px)] pt-20">{children}</main>
-        <Footer />
-        <Toaster />
-        <Analytics />
+        <Providers>
+          <Header />
+          <main className="min-h-[calc(100vh-80px)] pt-20">{children}</main>
+          <Footer />
+          <Toaster />
+          <Analytics />
+        </Providers>
       </body>
     </html>
   )

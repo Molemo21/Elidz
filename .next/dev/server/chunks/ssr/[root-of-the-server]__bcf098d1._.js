@@ -102,12 +102,18 @@ function Button({ className, variant, size, asChild = false, ...props }) {
 
 __turbopack_context__.s([
     "createClient",
-    ()=>createClient
+    ()=>createClient,
+    "resetClient",
+    ()=>resetClient
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$supabase$2b$supabase$2d$js$40$2$2e$84$2e$0$2f$node_modules$2f40$supabase$2f$supabase$2d$js$2f$dist$2f$module$2f$index$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/.pnpm/@supabase+supabase-js@2.84.0/node_modules/@supabase/supabase-js/dist/module/index.js [app-ssr] (ecmascript) <locals>");
 ;
 // Singleton client instance to avoid multiple GoTrueClient instances
 let clientInstance = null;
+function resetClient() {
+    clientInstance = null;
+    console.log('Supabase client instance reset');
+}
 function createClient() {
     // Return singleton instance if it exists
     if (clientInstance) {
@@ -127,9 +133,11 @@ function createClient() {
         clientInstance = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$supabase$2b$supabase$2d$js$40$2$2e$84$2e$0$2f$node_modules$2f40$supabase$2f$supabase$2d$js$2f$dist$2f$module$2f$index$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createClient"])(supabaseUrl, supabaseAnonKey, {
             auth: {
                 persistSession: true,
-                autoRefreshToken: true,
+                autoRefreshToken: false,
                 detectSessionInUrl: true,
-                storage: ("TURBOPACK compile-time falsy", 0) ? "TURBOPACK unreachable" : undefined
+                storage: ("TURBOPACK compile-time falsy", 0) ? "TURBOPACK unreachable" : undefined,
+                // Add flow type to prevent issues
+                flowType: 'pkce'
             }
         });
         return clientInstance;
@@ -162,9 +170,10 @@ class AuthService {
             const supabaseKey = ("TURBOPACK compile-time value", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54ZGpka29hbXZlcnRtemdzbHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5OTUwMTgsImV4cCI6MjA3OTU3MTAxOH0.2qdDKkJUEPI-bsA15NuEe4vz9XjsFQuZmtYeF_UbOzI");
             if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
             ;
-            // Create a fresh client for auth to avoid singleton issues
-            // Use the same config as our singleton but create fresh instance for auth
-            // This matches the working test-auth approach
+            // Create a fresh client instance for auth to avoid any singleton issues
+            console.log('Creating Supabase client for auth...');
+            console.log('Supabase URL:', supabaseUrl);
+            console.log('Anon key length:', supabaseKey.length);
             const supabaseAuth = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$supabase$2b$supabase$2d$js$40$2$2e$84$2e$0$2f$node_modules$2f40$supabase$2f$supabase$2d$js$2f$dist$2f$module$2f$index$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createClient"])(supabaseUrl, supabaseKey, {
                 auth: {
                     persistSession: true,
@@ -173,101 +182,127 @@ class AuthService {
                     storage: ("TURBOPACK compile-time falsy", 0) ? "TURBOPACK unreachable" : undefined
                 }
             });
-            console.log('Supabase client created for auth');
+            console.log('Supabase client created successfully');
             console.log('Attempting authentication...');
             const startTime = Date.now();
             // Direct auth call with timeout protection
             console.log('Calling signInWithPassword...');
-            // Create timeout promise
-            const timeoutPromise = new Promise((_, reject)=>{
+            console.log('Email:', email);
+            // Create timeout promise with more detailed error
+            const authTimeoutPromise = new Promise((_, reject)=>{
                 setTimeout(()=>{
-                    reject(new Error('Authentication request timed out. Please check your connection and try again.'));
+                    const elapsed = Date.now() - startTime;
+                    console.error(`Authentication timed out after ${elapsed}ms`);
+                    console.error('The auth request may not have been sent. Check:');
+                    console.error('1. Browser Network tab for /auth/v1/token request');
+                    console.error('2. Browser console for any errors before this timeout');
+                    console.error('3. Supabase dashboard to verify the project is active');
+                    reject(new Error(`Authentication request timed out after ${elapsed}ms. The request may not have been sent. Check browser Network tab.`));
                 }, 30000); // 30 second timeout
             });
             // Race between auth and timeout
+            console.log('Creating auth promise...');
             const authPromise = supabaseAuth.auth.signInWithPassword({
                 email,
                 password
+            }).then((result)=>{
+                const elapsed = Date.now() - startTime;
+                console.log(`Auth promise resolved after ${elapsed}ms`);
+                return result;
+            }).catch((err)=>{
+                const elapsed = Date.now() - startTime;
+                console.error(`Auth promise rejected after ${elapsed}ms:`, err);
+                throw err;
             });
+            console.log('Racing auth against timeout...');
             const authResult = await Promise.race([
                 authPromise,
-                timeoutPromise
+                authTimeoutPromise
             ]);
             const { data, error } = authResult;
             const elapsed = Date.now() - startTime;
             console.log(`Auth call completed in ${elapsed}ms`);
             if (error) {
                 console.error('Supabase auth error:', error);
+                // Handle email not confirmed error specifically
+                if (error.message?.includes('Email not confirmed') || error.message?.includes('email_not_confirmed')) {
+                    const emailNotConfirmedError = new Error('Email not confirmed');
+                    emailNotConfirmedError.code = 'EMAIL_NOT_CONFIRMED';
+                    emailNotConfirmedError.email = email;
+                    throw emailNotConfirmedError;
+                }
                 throw new Error(error.message || 'Invalid email or password');
             }
             if (!data.user) {
                 throw new Error('Failed to sign in - no user data returned');
             }
-            console.log('Auth successful, user ID:', data.user.id);
-            console.log('Session token:', data.session?.access_token ? 'Present' : 'Missing');
-            // Ensure session is set for database queries
             if (!data.session) {
                 throw new Error('Authentication succeeded but no session was returned. Please try again.');
             }
-            // Use the SAME client that was used for auth - it already has the session
-            // Don't switch clients - use the one that authenticated
+            console.log('Auth successful, user ID:', data.user.id);
+            console.log('Session token:', data.session?.access_token ? 'Present' : 'Missing');
+            console.log('Access token length:', data.session.access_token?.length || 0);
+            // Verify session is being stored
+            if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+            ;
+            // Use the same client that authenticated - it already has the session
             console.log('Using authenticated client for database query...');
             console.log('User ID to query:', data.user.id);
-            // Verify session is available on the auth client
-            const { data: { session: verifySession }, error: sessionError } = await supabaseAuth.auth.getSession();
-            if (sessionError) {
-                console.error('Error getting session:', sessionError);
-            }
-            if (!verifySession) {
-                throw new Error('Session not available on auth client. Please try logging in again.');
-            }
-            console.log('Session verified on auth client');
-            console.log('Access token present:', !!verifySession.access_token);
-            console.log('Access token length:', verifySession.access_token?.length || 0);
-            console.log('User ID from session:', verifySession.user?.id);
-            console.log('User ID to query:', data.user.id);
-            console.log('IDs match:', verifySession.user?.id === data.user.id);
-            // Test database connectivity first with a simple query
-            console.log('Testing database connectivity...');
-            try {
-                const testQuery = await supabaseAuth.from('users').select('count').limit(1);
-                console.log('Database connectivity test result:', {
-                    hasData: !!testQuery.data,
-                    hasError: !!testQuery.error
-                });
-                if (testQuery.error) {
-                    console.warn('Database test query error (might be RLS, continuing anyway):', testQuery.error.message);
-                }
-            } catch (testErr) {
-                console.warn('Database connectivity test failed (continuing anyway):', testErr);
-            }
             // Add timeout to profile query to prevent hanging
             const profileQueryStartTime = Date.now();
             const profileQueryTimeout = 10000 // 10 seconds
             ;
-            // Create the query promise using the SAME client that authenticated
-            // This client already has the session token attached
+            // Use the auth client - it already has the session from signInWithPassword
             console.log('Creating profile query with authenticated client...');
-            // Try the query with better error handling
+            console.log('Querying user ID:', data.user.id);
+            // Try the query with better error handling and proper timeout
             let profile = null;
             let profileError = null;
             try {
-                // Create a promise that will reject on timeout
-                const timeoutId = setTimeout(()=>{
-                    const elapsed = Date.now() - profileQueryStartTime;
-                    console.error(`Profile query timeout after ${elapsed}ms`);
-                    console.error('Check browser Network tab for request to /rest/v1/users');
-                    throw new Error(`Profile query timed out after ${elapsed}ms. Check browser Network tab for the actual request status.`);
-                }, profileQueryTimeout);
-                // Execute the query
-                const queryResult = await supabaseAuth.from('users').select('id, email, role, first_name, last_name, approved').eq('id', data.user.id).single();
-                clearTimeout(timeoutId);
+                // Create timeout promise that properly rejects
+                const profileTimeoutPromise = new Promise((_, reject)=>{
+                    setTimeout(()=>{
+                        const elapsed = Date.now() - profileQueryStartTime;
+                        console.error(`Profile query timeout after ${elapsed}ms`);
+                        console.error('This likely indicates an RLS policy issue or network problem.');
+                        console.error('Check browser Network tab for request to /rest/v1/users');
+                        reject(new Error(`Profile query timed out after ${elapsed}ms. This may indicate an RLS policy issue. Check browser Network tab for the actual request status.`));
+                    }, profileQueryTimeout);
+                });
+                // Create the query promise
+                console.log('Executing query...');
+                console.log('Query URL will be: /rest/v1/users?select=id,email,role,first_name,last_name,approved&id=eq.' + data.user.id);
+                const queryPromise = supabaseAuth.from('users').select('id, email, role, first_name, last_name, approved').eq('id', data.user.id).single().then((result)=>{
+                    console.log('Query promise resolved with result:', {
+                        hasData: !!result.data,
+                        hasError: !!result.error
+                    });
+                    if (result.error) {
+                        console.error('Query returned error:', result.error);
+                        console.error('Error code:', result.error.code);
+                        console.error('Error message:', result.error.message);
+                        console.error('Error details:', result.error.details);
+                    }
+                    return result;
+                });
+                // Race between query and timeout
+                console.log('Racing query against timeout...');
+                const queryResult = await Promise.race([
+                    queryPromise,
+                    profileTimeoutPromise
+                ]);
                 profile = queryResult.data;
                 profileError = queryResult.error;
-                console.log('Query completed, checking result...');
+                const elapsed = Date.now() - profileQueryStartTime;
+                console.log(`Query completed in ${elapsed}ms, checking result...`);
             } catch (queryErr) {
                 const elapsed = Date.now() - profileQueryStartTime;
                 console.error(`Query failed after ${elapsed}ms:`, queryErr);
+                console.error('Error details:', {
+                    message: queryErr.message,
+                    name: queryErr.name,
+                    stack: queryErr.stack
+                });
                 // If it's a timeout error, re-throw it
                 if (queryErr.message?.includes('timed out')) {
                     throw queryErr;
@@ -302,11 +337,8 @@ class AuthService {
             console.log('Profile loaded:', profile);
             // Type assertion to work around TypeScript error types
             const profileData = profile;
-            if (!profileData.approved) {
-                console.log('User not approved, signing out...');
-                await supabaseAuth.auth.signOut();
-                throw new Error('Your account is pending admin approval. You will be notified once approved.');
-            }
+            // Note: We allow unapproved users to log in so they can see the pending-approval page
+            // The routing logic in login page and protected pages will handle redirecting them appropriately
             // Update last login (don't fail if this errors)
             try {
                 await supabaseAuth.from('users').update({
@@ -322,6 +354,11 @@ class AuthService {
                 email: profileData.email,
                 role: profileData.role
             });
+            // Verify session is stored in localStorage
+            if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+            ;
+            // Small delay to ensure session is fully persisted
+            await new Promise((resolve)=>setTimeout(resolve, 100));
             return {
                 id: profileData.id,
                 email: profileData.email,
@@ -339,6 +376,7 @@ class AuthService {
    */ static async register(data) {
         const supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$supabase$2f$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createClient"])();
         // Sign up with Supabase Auth
+        // Include metadata so trigger can access it
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: data.email,
             password: data.password,
@@ -346,7 +384,8 @@ class AuthService {
                 data: {
                     first_name: data.firstName,
                     last_name: data.lastName,
-                    phone: data.phone
+                    phone: data.phone,
+                    role: data.role
                 }
             }
         });
@@ -356,20 +395,31 @@ class AuthService {
         if (!authData.user) {
             throw new Error('Failed to create account');
         }
-        // Create user record in users table
-        const { error: userError } = await supabase.from('users').insert({
-            id: authData.user.id,
-            email: data.email,
-            role: data.role,
-            first_name: data.firstName,
-            last_name: data.lastName,
-            phone: data.phone,
-            approved: false
-        });
-        if (userError) {
-            // Clean up auth user if profile creation fails
-            await supabase.auth.signOut();
-            throw new Error('Failed to create user profile');
+        // Wait a moment for trigger to fire automatically
+        // The trigger should create the user record server-side
+        await new Promise((resolve)=>setTimeout(resolve, 800));
+        // Use server action as backup to ensure user record is created
+        // This uses the system function via RPC which bypasses RLS
+        try {
+            const { createUserRecord } = await __turbopack_context__.A("[project]/app/actions/create-user-record.ts [app-ssr] (ecmascript, async loader)");
+            const result = await createUserRecord(authData.user.id, {
+                email: data.email,
+                role: data.role,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                phone: data.phone
+            });
+            if (result.success) {
+                console.log('✅ User record ensured:', result.message);
+            } else {
+                // Log warning but don't fail - trigger should have created it
+                console.warn('⚠️ Server action returned:', result.error);
+            // Registration continues - the trigger might have created the record
+            }
+        } catch (serverActionError) {
+            // Log error but don't fail registration
+            console.warn('⚠️ Server action error (non-fatal):', serverActionError.message);
+        // Continue - trigger should have created the record
         }
         return {
             id: authData.user.id,
@@ -389,9 +439,40 @@ class AuthService {
    * Get current authenticated user
    */ static async getCurrentUser() {
         try {
-            const supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$supabase$2f$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createClient"])();
-            // First, get the session to ensure it's loaded from storage
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            let supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$supabase$2f$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createClient"])();
+            // Try to get session with timeout - getSession() can hang
+            let session = null;
+            let sessionError = null;
+            let useFreshClient = false;
+            try {
+                // Add timeout to getSession() call since it can hang
+                const sessionTimeoutPromise = new Promise((_, reject)=>{
+                    setTimeout(()=>{
+                        reject(new Error('getSession() timed out'));
+                    }, 5000); // 5 second timeout for session retrieval
+                });
+                const sessionPromise = supabase.auth.getSession();
+                const sessionResult = await Promise.race([
+                    sessionPromise,
+                    sessionTimeoutPromise
+                ]);
+                session = sessionResult.data?.session;
+                sessionError = sessionResult.error;
+            } catch (timeoutError) {
+                // getSession() timed out - reset client and try reading directly from localStorage as fallback
+                console.warn('getSession() timed out, resetting client and trying localStorage fallback...');
+                (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$supabase$2f$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["resetClient"])(); // Reset the stuck client
+                // Create a fresh client for the fallback
+                supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$supabase$2f$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createClient"])();
+                useFreshClient = true;
+                if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+                ;
+                // If we still don't have a session, return null
+                if (!session) {
+                    console.error('Could not retrieve session - getSession() timed out and localStorage fallback failed');
+                    return null;
+                }
+            }
             if (sessionError) {
                 console.log('Session error:', sessionError.message);
                 return null;
@@ -400,47 +481,194 @@ class AuthService {
                 console.log('No session found');
                 return null;
             }
-            // Then get the user to verify the session is valid
-            const { data: { user }, error } = await supabase.auth.getUser();
-            if (error) {
-                console.log('Failed to get user:', error.message);
-                return null;
+            // Use user from session if available (from localStorage fallback)
+            // Otherwise try getUser() with timeout
+            let user = session.user;
+            if (!user) {
+                // Try getUser() with timeout since it can also hang
+                try {
+                    const getUserTimeoutPromise = new Promise((_, reject)=>{
+                        setTimeout(()=>{
+                            reject(new Error('getUser() timed out'));
+                        }, 5000);
+                    });
+                    const getUserPromise = supabase.auth.getUser();
+                    const getUserResult = await Promise.race([
+                        getUserPromise,
+                        getUserTimeoutPromise
+                    ]);
+                    user = getUserResult.data?.user;
+                    const error = getUserResult.error;
+                    if (error) {
+                        console.log('Failed to get user:', error.message);
+                        return null;
+                    }
+                } catch (getUserError) {
+                    console.warn('getUser() timed out, using user from session:', getUserError.message);
+                    // Use user from session if available
+                    if (!session.user) {
+                        return null;
+                    }
+                    user = session.user;
+                }
             }
             if (!user) {
                 console.log('No user found');
                 return null;
             }
-            // Get user profile
-            const { data: profile, error: profileError } = await supabase.from('users').select('id, email, role, first_name, last_name, approved').eq('id', user.id).single();
+            // Get user profile with timeout protection and better error handling
+            const profileQueryStartTime = Date.now();
+            const profileQueryTimeout = 5000 // Reduced to 5 seconds for faster failure
+            ;
+            console.log('Getting user profile for:', user.id);
+            let profile = null;
+            let profileError = null;
+            try {
+                // Create timeout promise that rejects after timeout
+                const profileTimeoutPromise = new Promise((_, reject)=>{
+                    setTimeout(()=>{
+                        const elapsed = Date.now() - profileQueryStartTime;
+                        reject(new Error(`Profile query timed out after ${elapsed}ms`));
+                    }, profileQueryTimeout);
+                });
+                // Create the query promise
+                // Use maybeSingle() instead of single() to prevent 406 errors when no row found
+                const queryPromise = supabase.from('users').select('id, email, role, first_name, last_name, approved').eq('id', user.id).maybeSingle();
+                // Race between query and timeout - timeout will win if query takes too long
+                const queryResult = await Promise.race([
+                    queryPromise,
+                    profileTimeoutPromise
+                ]);
+                profile = queryResult.data;
+                profileError = queryResult.error;
+                const elapsed = Date.now() - profileQueryStartTime;
+                if (profileError) {
+                    console.warn(`Profile query completed with error in ${elapsed}ms:`, profileError.message);
+                } else {
+                    console.log(`Profile query completed successfully in getCurrentUser in ${elapsed}ms`);
+                }
+            } catch (queryErr) {
+                const elapsed = Date.now() - profileQueryStartTime;
+                // Check if it's a timeout error
+                if (queryErr.message?.includes('timed out')) {
+                    console.warn(`Profile query timed out after ${elapsed}ms - returning minimal user from session`);
+                    console.warn('Possible causes: RLS policy issues, network problems, or session token issues');
+                    console.warn('Returning minimal user to allow app to function while profile loads in background');
+                    // Return minimal user immediately on timeout - don't wait
+                    if (user && user.email) {
+                        const minimalUser = {
+                            id: user.id,
+                            email: user.email,
+                            role: 'smme',
+                            name: user.email.split('@')[0],
+                            approved: false
+                        };
+                        console.warn('Returning minimal user:', minimalUser.email);
+                        return minimalUser;
+                    }
+                    console.error('Cannot return minimal user - no user email available');
+                    return null;
+                }
+                console.error(`Profile query failed in getCurrentUser after ${elapsed}ms:`, queryErr);
+                // Otherwise, treat it as a profile error
+                profileError = queryErr;
+            }
             if (profileError) {
                 console.error('Profile fetch error:', profileError);
                 if (profileError.code === 'PGRST116') {
                     console.error('User profile not found in database');
+                    // Return minimal user from session if profile not found
+                    if (user && user.email) {
+                        console.warn('Returning minimal user from session since profile not found');
+                        return {
+                            id: user.id,
+                            email: user.email,
+                            role: 'smme',
+                            name: user.email.split('@')[0],
+                            approved: false
+                        };
+                    }
                     return null;
                 }
                 if (profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
                     console.error('RLS policy error - user might not have permission');
+                    // Return minimal user from session if RLS blocks
+                    if (user && user.email) {
+                        console.warn('Returning minimal user from session since RLS blocked profile query');
+                        return {
+                            id: user.id,
+                            email: user.email,
+                            role: 'smme',
+                            name: user.email.split('@')[0],
+                            approved: false
+                        };
+                    }
                     return null;
+                }
+                // For other errors, try to return minimal user
+                if (user && user.email) {
+                    console.warn('Returning minimal user from session due to profile error');
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        role: 'smme',
+                        name: user.email.split('@')[0],
+                        approved: false
+                    };
                 }
                 return null;
             }
             if (!profile) {
+                // No profile but we have session user - return minimal user
+                if (user && user.email) {
+                    console.warn('No profile found but session exists - returning minimal user');
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        role: 'smme',
+                        name: user.email.split('@')[0],
+                        approved: false
+                    };
+                }
                 return null;
             }
             // Type guard to ensure profile has required fields
-            if (!profile.id || !profile.email || !profile.role || !profile.first_name || !profile.last_name) {
+            if (!profile.id || !profile.email || !profile.role) {
+                // If profile is missing required fields, return minimal user from session
+                if (user && user.email) {
+                    console.warn('Profile missing required fields - returning minimal user from session');
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        role: profile.role || 'smme',
+                        name: profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : user.email.split('@')[0],
+                        approved: profile.approved ?? false
+                    };
+                }
                 return null;
             }
             return {
                 id: profile.id,
                 email: profile.email,
                 role: profile.role,
-                name: `${profile.first_name} ${profile.last_name}`,
+                name: profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : profile.email.split('@')[0],
                 approved: profile.approved ?? false
             };
         } catch (error) {
             console.error('getCurrentUser error:', error);
             return null;
+        }
+    }
+    /**
+   * Resend email confirmation
+   */ static async resendConfirmationEmail(email) {
+        const supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$supabase$2f$client$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["createClient"])();
+        const { error } = await supabase.auth.resend({
+            type: 'signup',
+            email: email
+        });
+        if (error) {
+            throw new Error(error.message || 'Failed to resend confirmation email');
         }
     }
     /**
@@ -506,6 +734,11 @@ function useAuth() {
     const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(true);
     const [mounted, setMounted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const router = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRouter"])();
+    // Use refs to prevent multiple simultaneous calls
+    const isLoadingUserRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(false);
+    const lastLoadTimeRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(0);
+    const LOAD_DEBOUNCE_MS = 3000 // Don't load more than once every 3 seconds
+    ;
     // Ensure we're mounted before accessing browser APIs
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         setMounted(true);
@@ -547,19 +780,48 @@ function useAuth() {
         mounted
     ]);
     const loadUser = async ()=>{
+        // Prevent multiple simultaneous calls
+        if (isLoadingUserRef.current) {
+            console.log('loadUser already in progress, skipping...');
+            return;
+        }
+        // Debounce rapid calls
+        const now = Date.now();
+        if (now - lastLoadTimeRef.current < LOAD_DEBOUNCE_MS) {
+            console.log('loadUser called too soon, debouncing...');
+            return;
+        }
+        lastLoadTimeRef.current = now;
+        isLoadingUserRef.current = true;
         try {
             setLoading(true);
             const currentUser = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$auth$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["AuthService"].getCurrentUser();
-            setUser(currentUser);
-            if (!currentUser) {
-                console.log('No user found - user may not be logged in');
-            } else {
+            if (currentUser) {
+                // Got user successfully
+                setUser(currentUser);
                 console.log('User loaded successfully:', currentUser.email, currentUser.role);
+            } else {
+                // getCurrentUser returned null - check localStorage directly (don't call getSession() which will timeout)
+                // This prevents overwriting a successful login when profile query times out
+                let hasSession = false;
+                if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+                ;
+                else {
+                    // Not in browser - clear user
+                    setUser(null);
+                }
             }
         } catch (error) {
             console.error('Error loading user:', error);
-            setUser(null);
+            // Check localStorage directly instead of calling getSession()
+            let hasSession = false;
+            if ("TURBOPACK compile-time falsy", 0) //TURBOPACK unreachable
+            ;
+            else {
+                setUser(null);
+            }
         } finally{
+            isLoadingUserRef.current = false;
             setLoading(false);
         }
     };
@@ -1793,7 +2055,6 @@ function Header() {
     const { user, logout, isAdmin, loading } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$hooks$2f$use$2d$auth$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useAuth"])();
     const pathname = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["usePathname"])();
     const [mounted, setMounted] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
-    const [showContent, setShowContent] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [scrolled, setScrolled] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [showSplash, setShowSplash] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(true);
     const [showHeaderLogo, setShowHeaderLogo] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
@@ -1822,27 +2083,12 @@ function Header() {
             window.removeEventListener("splashComplete", handleSplashComplete);
         };
     }, []);
-    // Show content after a short delay to ensure auth state is loaded
-    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
-        if (mounted) {
-            // Small delay to allow auth to initialize, then show content
-            // Also set a maximum timeout to ensure content always shows
-            const timer = setTimeout(()=>{
-                setShowContent(true);
-            }, 100);
-            // Fallback: force show content after 2 seconds even if still loading
-            const fallbackTimer = setTimeout(()=>{
-                setShowContent(true);
-            }, 2000);
-            return ()=>{
-                clearTimeout(timer);
-                clearTimeout(fallbackTimer);
-            };
-        }
-    }, [
-        mounted,
-        loading
-    ]);
+    // Show loading skeleton only during initial load, not during subsequent auth checks
+    // Once we have a user, don't show loading again to prevent flickering
+    const showLoading = !mounted || loading && !user;
+    // Ensure user has required properties before rendering user menu
+    // Add null safety checks to prevent runtime errors
+    const hasValidUser = Boolean(user && user.name && user.email && user.id);
     // Handle scroll effect for transparent header on home page
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (!isHomePage) {
@@ -1882,23 +2128,23 @@ function Header() {
                             priority: true
                         }, void 0, false, {
                             fileName: "[project]/components/header.tsx",
-                            lineNumber: 119,
+                            lineNumber: 105,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/header.tsx",
-                        lineNumber: 113,
+                        lineNumber: 99,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
                         className: "flex items-center gap-4",
-                        children: !mounted || loading && !showContent ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        children: showLoading ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "h-9 w-24 animate-pulse rounded bg-white/40 border border-white/20"
                         }, void 0, false, {
                             fileName: "[project]/components/header.tsx",
-                            lineNumber: 132,
+                            lineNumber: 118,
                             columnNumber: 15
-                        }, this) : user ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
+                        }, this) : hasValidUser ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
                             children: [
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
                                     href: isAdmin ? "/admin" : "/dashboard",
@@ -1906,7 +2152,7 @@ function Header() {
                                     children: isAdmin ? "Admin Dashboard" : "Dashboard"
                                 }, void 0, false, {
                                     fileName: "[project]/components/header.tsx",
-                                    lineNumber: 135,
+                                    lineNumber: 121,
                                     columnNumber: 17
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -1915,7 +2161,7 @@ function Header() {
                                     children: "Opportunities"
                                 }, void 0, false, {
                                     fileName: "[project]/components/header.tsx",
-                                    lineNumber: 141,
+                                    lineNumber: 127,
                                     columnNumber: 17
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$notifications$2f$notification$2d$bell$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["NotificationBell"], {
@@ -1931,7 +2177,7 @@ function Header() {
                                     }
                                 }, void 0, false, {
                                     fileName: "[project]/components/header.tsx",
-                                    lineNumber: 149,
+                                    lineNumber: 135,
                                     columnNumber: 17
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenu"], {
@@ -1947,19 +2193,19 @@ function Header() {
                                                         className: "h-4 w-4"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/header.tsx",
-                                                        lineNumber: 169,
+                                                        lineNumber: 155,
                                                         columnNumber: 23
                                                     }, this),
-                                                    user.name
+                                                    user?.name || "User"
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/header.tsx",
-                                                lineNumber: 164,
+                                                lineNumber: 150,
                                                 columnNumber: 21
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/header.tsx",
-                                            lineNumber: 163,
+                                            lineNumber: 149,
                                             columnNumber: 19
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -1972,34 +2218,34 @@ function Header() {
                                                         children: [
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                 className: "text-sm font-medium",
-                                                                children: user.name
+                                                                children: user?.name || "User"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/header.tsx",
-                                                                lineNumber: 176,
+                                                                lineNumber: 162,
                                                                 columnNumber: 25
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                 className: "text-xs text-muted-foreground",
-                                                                children: user.email
+                                                                children: user?.email || ""
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/header.tsx",
-                                                                lineNumber: 177,
+                                                                lineNumber: 163,
                                                                 columnNumber: 25
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/header.tsx",
-                                                        lineNumber: 175,
+                                                        lineNumber: 161,
                                                         columnNumber: 23
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/header.tsx",
-                                                    lineNumber: 174,
+                                                    lineNumber: 160,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuSeparator"], {}, void 0, false, {
                                                     fileName: "[project]/components/header.tsx",
-                                                    lineNumber: 180,
+                                                    lineNumber: 166,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2012,24 +2258,24 @@ function Header() {
                                                                 className: "mr-2 h-4 w-4"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/header.tsx",
-                                                                lineNumber: 183,
+                                                                lineNumber: 169,
                                                                 columnNumber: 25
                                                             }, this),
                                                             "Profile Settings"
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/header.tsx",
-                                                        lineNumber: 182,
+                                                        lineNumber: 168,
                                                         columnNumber: 23
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/header.tsx",
-                                                    lineNumber: 181,
+                                                    lineNumber: 167,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuSeparator"], {}, void 0, false, {
                                                     fileName: "[project]/components/header.tsx",
-                                                    lineNumber: 187,
+                                                    lineNumber: 173,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2040,26 +2286,26 @@ function Header() {
                                                             className: "mr-2 h-4 w-4"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/header.tsx",
-                                                            lineNumber: 189,
+                                                            lineNumber: 175,
                                                             columnNumber: 23
                                                         }, this),
                                                         "Logout"
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/header.tsx",
-                                                    lineNumber: 188,
+                                                    lineNumber: 174,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/header.tsx",
-                                            lineNumber: 173,
+                                            lineNumber: 159,
                                             columnNumber: 19
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/header.tsx",
-                                    lineNumber: 162,
+                                    lineNumber: 148,
                                     columnNumber: 17
                                 }, this)
                             ]
@@ -2076,33 +2322,33 @@ function Header() {
                                 children: "Sign In"
                             }, void 0, false, {
                                 fileName: "[project]/components/header.tsx",
-                                lineNumber: 197,
+                                lineNumber: 183,
                                 columnNumber: 17
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/components/header.tsx",
-                            lineNumber: 196,
+                            lineNumber: 182,
                             columnNumber: 15
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/header.tsx",
-                        lineNumber: 130,
+                        lineNumber: 116,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/header.tsx",
-                lineNumber: 111,
+                lineNumber: 97,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/components/header.tsx",
-            lineNumber: 110,
+            lineNumber: 96,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/components/header.tsx",
-        lineNumber: 109,
+        lineNumber: 95,
         columnNumber: 5
     }, this);
 }

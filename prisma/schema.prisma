@@ -1,0 +1,168 @@
+// Prisma Schema for ELIDZ-STP Funding Platform
+// This schema matches your existing Supabase database structure
+// Note: Enum-like fields are stored as TEXT with CHECK constraints, so we use String
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users table
+// Now supports JWT authentication with password_hash
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String?  @map("password_hash") @db.Text // Nullable for existing users migrating from Supabase
+  role         String   @default("smme") // 'smme' | 'admin'
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  phone        String
+  approved     Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLogin    DateTime? @map("last_login") @db.Timestamptz(6)
+
+  // Relations
+  profile       UserProfile?
+  matches       Match[]
+  applications  Application[]
+  documents     Document[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@index([approved])
+  @@map("users")
+}
+
+// User profiles table
+model UserProfile {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @map("user_id") @db.Uuid
+  companyName        String?  @map("company_name") @db.Text
+  registrationNumber String?  @map("registration_number") @db.Text
+  industry           String?  @db.Text
+  businessDescription String? @map("business_description") @db.Text
+  annualRevenue      Decimal? @map("annual_revenue") @db.Decimal(15, 2)
+  employeesCount     Int?     @map("employees_count")
+  yearsInBusiness    Int?     @map("years_in_business")
+  location           String?  @db.Text
+  fundingRequirements Json?   @map("funding_requirements") @db.JsonB
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_profiles")
+}
+
+// Funding opportunities table
+model FundingOpportunity {
+  id                 String   @id @default(uuid()) @db.Uuid
+  funderName         String   @map("funder_name") @db.Text
+  programName        String   @map("program_name") @db.Text
+  description        String   @db.Text
+  amountRangeMin     Decimal  @map("amount_range_min") @db.Decimal(15, 2)
+  amountRangeMax     Decimal  @map("amount_range_max") @db.Decimal(15, 2)
+  eligibilityCriteria String[] @map("eligibility_criteria") @db.Text
+  applicationUrl     String   @map("application_url") @db.Text
+  deadline           DateTime @db.Timestamptz(6)
+  industryFocus      String[] @map("industry_focus") @db.Text
+  fundingType        String   @map("funding_type") @db.Text
+  requirements       String[] @db.Text
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  matches      Match[]
+  applications Application[]
+
+  @@map("funding_opportunities")
+}
+
+// Matches table
+model Match {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  opportunityId String   @map("opportunity_id") @db.Uuid
+  matchScore    Int      @map("match_score") // 0-100
+  matchReasons  String[] @map("match_reasons") @db.Text
+  status        String   @default("new") // 'new' | 'viewed' | 'interested' | 'applied'
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  viewedAt      DateTime? @map("viewed_at") @db.Timestamptz(6)
+
+  // Relations
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunity FundingOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@index([userId])
+  @@index([opportunityId])
+  @@map("matches")
+}
+
+// Applications table
+model Application {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  opportunityId String   @map("opportunity_id") @db.Uuid
+  matchId       String?  @map("match_id") @db.Uuid
+  status        String   @default("draft") // 'draft' | 'in_review' | 'submitted' | 'approved' | 'rejected'
+  formData      Json     @default("{}") @map("form_data") @db.JsonB
+  aiCompleted   Boolean  @default(false) @map("ai_completed")
+  userEdited    Boolean  @default(false) @map("user_edited")
+  submittedAt   DateTime? @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  outcome       String?  // 'approved' | 'rejected'
+  outcomeReason String?  @map("outcome_reason") @db.Text
+  signature     String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunity FundingOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  match       Match?             @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([opportunityId])
+  @@index([status])
+  @@map("applications")
+}
+
+// Documents table
+model Document {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  name       String   @db.Text
+  type       String   @db.Text
+  url        String   @db.Text
+  uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("documents")
+}
+
+// Notifications table
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   // 'match' | 'application_completed' | 'status_update'
+  title     String   @db.Text
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}

@@ -1,182 +1,128 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { signIn } from "next-auth/react"
+import { useSession } from "next-auth/react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/hooks/use-auth"
 import { Loader2 } from "lucide-react"
+import { isProfileComplete } from "@/app/actions/user-profiles"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const { login, user, loading: authLoading } = useAuth()
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const { data: session, status } = useSession()
   const { toast } = useToast()
   const router = useRouter()
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!authLoading && user) {
-      // User is already logged in, redirect to appropriate page
-      if (user.role === "admin") {
-        router.replace("/admin")
-      } else if (!user.approved) {
-        router.replace("/pending-approval")
-      } else {
-        router.replace("/dashboard")
+    const checkAndRedirect = async () => {
+      if (status === "loading" || loading || isRedirecting) return
+
+      if (session?.user) {
+        const user = session.user
+        setIsRedirecting(true)
+
+        // Check profile completion for non-admin users
+        if (user.role !== "admin") {
+          try {
+            const profileComplete = await isProfileComplete()
+            if (!profileComplete) {
+              router.push("/onboarding")
+              return
+            }
+          } catch (error) {
+            console.error("Error checking profile completion:", error)
+            router.push("/onboarding")
+            return
+          }
+        }
+
+        // Redirect based on role and approval status
+        if (user.role === "admin") {
+          router.push("/admin")
+        } else if (!user.approved) {
+          router.push("/pending-approval")
+        } else {
+          router.push("/dashboard")
+        }
       }
     }
-  }, [user, authLoading, router])
+
+    checkAndRedirect()
+  }, [session, status, loading, isRedirecting, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    let timeoutId: NodeJS.Timeout | null = null
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
 
-    // Add timeout protection
-    const loginPromise = (async () => {
-      try {
-        console.log('Attempting login for:', email)
-        const user = await login(email, password)
+      if (result?.error) {
+        let errorMessage = "Invalid email or password. Please try again."
         
-        console.log('Login successful, user:', user)
-        console.log('User role:', user.role)
-        console.log('User approved:', user.approved)
-        
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in.",
-        })
-
-        // Sync session to cookies immediately after login
-        // This ensures server-side can read the session
-        console.log('Syncing session to cookies...')
-        try {
-          if (typeof window !== 'undefined') {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-            const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || ''
-            const storageKey = `sb-${projectRef}-auth-token`
-            const stored = localStorage.getItem(storageKey)
-            
-            if (stored) {
-              try {
-                const parsed = JSON.parse(stored)
-                if (parsed.access_token && parsed.refresh_token) {
-                  // Sync to cookies via API route (more reliable than server action)
-                  const syncResponse = await fetch('/api/auth/sync-cookies', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      accessToken: parsed.access_token,
-                      refreshToken: parsed.refresh_token,
-                    }),
-                  })
-
-                  const result = await syncResponse.json()
-                  if (result.success) {
-                    console.log('✓ Session synced to cookies successfully')
-                  } else {
-                    console.warn('⚠ Failed to sync session to cookies:', result.error)
-                  }
-                }
-              } catch (e) {
-                console.warn('Failed to parse session for cookie sync:', e)
-              }
-            } else {
-              console.warn('⚠ Session not found in localStorage for cookie sync')
-            }
-          }
-        } catch (syncError) {
-          console.error('Error syncing session to cookies:', syncError)
-          // Continue anyway - middleware might still work
+        if (result.error.includes("password hash")) {
+          errorMessage = "This account still uses Supabase authentication. Please contact support to migrate your account."
+        } else if (result.error.includes("Invalid")) {
+          errorMessage = result.error
         }
 
-        // Small delay to ensure cookies are set before redirect
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        // Redirect based on role and approval status
-        // Use window.location.href for full page reload to ensure middleware reads cookies
-        if (user.role === "admin") {
-          console.log('Redirecting admin to /admin')
-          window.location.href = "/admin"
-        } else if (!user.approved) {
-          console.log('User not approved, redirecting to pending approval')
-          window.location.href = "/pending-approval"
-        } else {
-          console.log('Redirecting user to /dashboard')
-          window.location.href = "/dashboard"
-        }
-      } catch (error) {
-        console.error('Login error:', error)
-        let errorMessage = "Invalid credentials. Please try again."
-        
-        if (error instanceof Error) {
-          errorMessage = error.message
-          
-          // Provide more helpful error messages
-          if (error.message.includes('Supabase is not configured')) {
-            errorMessage = "Configuration error: Supabase environment variables are missing. Please check your .env file."
-          } else if (error.message.includes('timed out')) {
-            errorMessage = "Connection timeout. Please check your internet connection and try again."
-          } else if (error.message.includes('User profile not found')) {
-            errorMessage = "User account not found. Please contact support or try registering a new account."
-          } else if (error.message.includes('pending admin approval')) {
-            errorMessage = "Your account is pending admin approval. You will be notified once approved."
-          } else if (error.message.includes('Invalid email or password')) {
-            errorMessage = "Invalid email or password. Please check your credentials and try again."
-          } else if (error.message.includes('RLS policy')) {
-            errorMessage = "Access denied. Please contact support if this issue persists."
-          }
-        }
-        
         toast({
           title: "Login failed",
           description: errorMessage,
           variant: "destructive",
         })
-        throw error // Re-throw to be caught by timeout handler
+        return
       }
-    })()
 
-    // Timeout handler
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(new Error('Login request timed out. Please check your connection and try again.'))
-      }, 30000) // 30 second timeout to match auth service
-    })
-
-    try {
-      await Promise.race([loginPromise, timeoutPromise])
-    } catch (error) {
-      // Error already handled in loginPromise catch block
-      // This catch is mainly for timeout errors
-      if (error instanceof Error && error.message.includes('timed out')) {
+      if (!result?.ok) {
         toast({
-          title: "Login timeout",
-          description: "The login request took too long. Please check your connection and try again.",
+          title: "Login failed",
+          description: "An unexpected error occurred. Please try again.",
           variant: "destructive",
         })
+        return
       }
+
+      // Login successful - session will be updated automatically by NextAuth
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in.",
+      })
+
+      // Wait a moment for session to update
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      // Refresh to get updated session
+      router.refresh()
+    } catch (error) {
+      console.error("Login error:", error)
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-      setLoading(false) // Always reset loading state
+      setLoading(false)
     }
   }
 
   // Show loading while checking auth state
-  if (authLoading) {
+  if (status === "loading") {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
         <div className="text-center">
@@ -188,7 +134,7 @@ export default function LoginPage() {
   }
 
   // Don't show login form if user is already logged in (redirecting)
-  if (user) {
+  if (session?.user || isRedirecting) {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
         <div className="text-center">

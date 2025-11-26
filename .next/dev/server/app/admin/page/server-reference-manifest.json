@@ -1,4 +1,20 @@
 {
-  "node": {},
+  "node": {
+    "60b59951fd5143ab30439d8982ae3ae4d3d966f67f": {
+      "workers": {
+        "app/admin/page": {
+          "moduleId": "[project]/.next-internal/server/app/admin/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/create-user-record.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createUserRecord",
+          "filename": "app/actions/create-user-record.ts"
+        }
+      },
+      "layer": {
+        "app/admin/page": "action-browser"
+      },
+      "exportedName": "createUserRecord",
+      "filename": "app/actions/create-user-record.ts"
+    }
+  },
   "edge": {}
 }

@@ -1,4 +1,20 @@
 {
-  "node": {},
+  "node": {
+    "00bb7fc876b5d429ebf45c202731d453991d49206f": {
+      "workers": {
+        "app/pending-approval/page": {
+          "moduleId": "[project]/.next-internal/server/app/pending-approval/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/user-profiles.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "isProfileComplete",
+          "filename": "app/actions/user-profiles.ts"
+        }
+      },
+      "layer": {
+        "app/pending-approval/page": "action-browser"
+      },
+      "exportedName": "isProfileComplete",
+      "filename": "app/actions/user-profiles.ts"
+    }
+  },
   "edge": {}
 }

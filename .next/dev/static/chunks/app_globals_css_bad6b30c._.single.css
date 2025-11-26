@@ -84,14 +84,19 @@
 @layer theme {
   :root, :host {
     --color-red-50: #fef2f2;
+    --color-red-200: #ffcaca;
     --color-red-300: #ffa3a3;
     --color-red-400: #ff6568;
     --color-red-600: #e40014;
+    --color-red-800: #9f0712;
     --color-orange-500: #fe6e00;
     --color-orange-600: #f05100;
     --color-yellow-50: #fefce8;
     --color-yellow-900: #733e0a;
+    --color-green-200: #b9f8cf;
     --color-green-400: #05df72;
+    --color-green-600: #00a544;
+    --color-gray-50: #f9fafb;
     --color-black: #000;
     --color-white: #fff;
     --spacing: .25rem;
@@ -101,6 +106,7 @@
     --container-2xl: 42rem;
     --container-3xl: 48rem;
     --container-4xl: 56rem;
+    --container-6xl: 72rem;
     --text-xs: .75rem;
     --text-xs--line-height: calc(1 / .75);
     --text-sm: .875rem;
@@ -145,14 +151,19 @@
   @supports (color: lab(0% 0 0)) {
     :root, :host {
       --color-red-50: lab(96.5005% 4.18511 1.52329);
+      --color-red-200: lab(86.017% 19.8815 7.75869);
       --color-red-300: lab(76.5514% 36.4219 15.5335);
       --color-red-400: lab(63.7053% 60.7449 31.3109);
       --color-red-600: lab(48.4493% 77.4328 61.5452);
+      --color-red-800: lab(33.7174% 55.8993 41.0293);
       --color-orange-500: lab(64.272% 57.1788 90.3583);
       --color-orange-600: lab(57.1026% 64.2584 89.8886);
       --color-yellow-50: lab(98.6846% -1.79058 9.77662);
       --color-yellow-900: lab(32.3865% 21.1274 38.5958);
+      --color-green-200: lab(92.4222% -26.4702 12.9427);
       --color-green-400: lab(78.503% -64.9265 39.7492);
+      --color-green-600: lab(59.0978% -58.6621 41.2579);
+      --color-gray-50: lab(98.2596% -.247031 -.706708);
     }
   }
 }
@@ -442,6 +453,10 @@
     visibility: hidden;
   }
 
+  .visible {
+    visibility: visible;
+  }
+
   .sr-only {
     clip-path: inset(50%);
     white-space: nowrap;
@@ -460,6 +475,10 @@
 
   .fixed {
     position: fixed;
+  }
+
+  .fixed\! {
+    position: fixed !important;
   }
 
   .relative {
@@ -1071,6 +1090,10 @@
     max-height: var(--radix-select-content-available-height);
   }
 
+  .max-h-60 {
+    max-height: calc(var(--spacing) * 60);
+  }
+
   .max-h-96 {
     max-height: calc(var(--spacing) * 96);
   }
@@ -1237,6 +1260,10 @@
 
   .max-w-4xl {
     max-width: var(--container-4xl);
+  }
+
+  .max-w-6xl {
+    max-width: var(--container-6xl);
   }
 
   .max-w-\[calc\(100\%-2rem\)\] {
@@ -1469,6 +1496,10 @@
 
   .grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .grid-cols-\[0_1fr\] {
@@ -1840,6 +1871,10 @@
     }
   }
 
+  .border-green-200 {
+    border-color: var(--color-green-200);
+  }
+
   .border-input {
     border-color: var(--input);
   }
@@ -1876,6 +1911,14 @@
     .border-primary\/50 {
       border-color: color-mix(in oklab, var(--primary) 50%, transparent);
     }
+  }
+
+  .border-red-200 {
+    border-color: var(--color-red-200);
+  }
+
+  .border-success {
+    border-color: var(--success);
   }
 
   .border-success\/20 {
@@ -2030,8 +2073,22 @@
     }
   }
 
+  .bg-destructive\/10 {
+    background-color: var(--destructive);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-destructive\/10 {
+      background-color: color-mix(in oklab, var(--destructive) 10%, transparent);
+    }
+  }
+
   .bg-foreground {
     background-color: var(--foreground);
+  }
+
+  .bg-gray-50 {
+    background-color: var(--color-gray-50);
   }
 
   .bg-input {
@@ -2102,6 +2159,10 @@
     .bg-primary\/20 {
       background-color: color-mix(in oklab, var(--primary) 20%, transparent);
     }
+  }
+
+  .bg-red-50 {
+    background-color: var(--color-red-50);
   }
 
   .bg-secondary {
@@ -2535,7 +2596,7 @@
     text-wrap: pretty;
   }
 
-  .break-words {
+  .break-words, .wrap-break-word {
     overflow-wrap: break-word;
   }
 
@@ -2601,6 +2662,10 @@
     color: var(--color-green-400);
   }
 
+  .text-green-600 {
+    color: var(--color-green-600);
+  }
+
   .text-muted-foreground {
     color: var(--muted-foreground);
   }
@@ -2619,6 +2684,14 @@
 
   .text-primary-foreground {
     color: var(--primary-foreground);
+  }
+
+  .text-red-600 {
+    color: var(--color-red-600);
+  }
+
+  .text-red-800 {
+    color: var(--color-red-800);
   }
 
   .text-secondary-foreground {
@@ -2651,6 +2724,14 @@
     .text-white\/90 {
       color: color-mix(in oklab, var(--color-white) 90%, transparent);
     }
+  }
+
+  .capitalize {
+    text-transform: capitalize;
+  }
+
+  .lowercase {
+    text-transform: lowercase;
   }
 
   .uppercase {

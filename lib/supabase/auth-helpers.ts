@@ -1,62 +1,32 @@
-import { createClient } from './server'
+// Server-side auth helpers - Now using NextAuth.js
+// This file maintains the same interface for backward compatibility
+// but uses NextAuth.js instead of Supabase Auth
+
 import { redirect } from 'next/navigation'
+import { getServerSession as getNextAuthSession, requireAuth as requireNextAuth, requireAdmin as requireNextAuthAdmin } from '@/lib/auth-nextauth-helpers'
 import type { AuthUser } from '@/lib/auth'
 
+/**
+ * Get the current session on the server
+ * Returns null if not authenticated
+ * Now uses NextAuth.js instead of Supabase
+ */
 export async function getServerSession(): Promise<AuthUser | null> {
-  const supabase = await createClient()
-  
-  const { data: { user }, error } = await supabase.auth.getUser()
-  
-  if (error || !user) {
-    return null
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('id, email, role, first_name, last_name, approved')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    console.error('Profile query error:', profileError)
-    return null
-  }
-
-  if (!profile) {
-    console.warn('Profile not found for user:', user.id)
-    return null
-  }
-
-  return {
-    id: profile.id,
-    email: profile.email,
-    role: profile.role,
-    name: `${profile.first_name} ${profile.last_name}`,
-    approved: profile.approved,
-  }
+  return await getNextAuthSession()
 }
 
+/**
+ * Require authentication - redirects to login if not authenticated
+ * Now uses NextAuth.js instead of Supabase
+ */
 export async function requireAuth(): Promise<AuthUser> {
-  const session = await getServerSession()
-  
-  if (!session) {
-    redirect('/login')
-  }
-  
-  return session
+  return await requireNextAuth()
 }
 
+/**
+ * Require admin role - redirects to login if not authenticated, or dashboard if not admin
+ * Now uses NextAuth.js instead of Supabase
+ */
 export async function requireAdmin(): Promise<AuthUser> {
-  const session = await getServerSession()
-  
-  if (!session) {
-    redirect('/login')
-  }
-  
-  if (session.role !== 'admin') {
-    redirect('/dashboard')
-  }
-  
-  return session
+  return await requireNextAuthAdmin()
 }
-

@@ -16,13 +16,26 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          // Update request cookies first
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+          })
+          
+          // Create new response with updated cookies
           supabaseResponse = NextResponse.next({
             request,
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          
+          // Set all cookies on the response with proper options
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              httpOnly: options?.httpOnly ?? true,
+              secure: options?.secure ?? (process.env.NODE_ENV === 'production'),
+              sameSite: (options?.sameSite as 'lax' | 'strict' | 'none') ?? 'lax',
+              path: options?.path ?? '/',
+            })
+          })
         },
       },
     }
@@ -30,12 +43,28 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh session if expired - required for Server Components
   // This will read from cookies and refresh if needed
+  // It will also trigger setAll if cookies need to be updated
   try {
-    await supabase.auth.getUser()
-  } catch (error) {
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error && error.message !== 'Auth session missing!') {
+      console.warn('[Middleware] getUser() error:', {
+        message: error.message,
+        status: error.status,
+      })
+    }
+    
+    // If we have a user, the session is valid
+    if (user) {
+      // Session is valid, cookies are set
+      return supabaseResponse
+    }
+  } catch (error: any) {
     // If getUser fails, the session might not be in cookies yet
     // This is okay - the client-side session will be synced on next request
-    console.warn('Middleware: Could not get user from cookies (may be first request after login):', error)
+    if (error?.message !== 'Auth session missing!') {
+      console.warn('[Middleware] Could not get user from cookies:', error?.message || error)
+    }
   }
 
   return supabaseResponse

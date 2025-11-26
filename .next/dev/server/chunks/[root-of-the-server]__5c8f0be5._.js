@@ -63,30 +63,61 @@ async function POST(request) {
                 status: 400
             });
         }
-        // Create response to set cookies
-        const response = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+        // Extract project reference from Supabase URL for cookie names
+        const supabaseUrl = ("TURBOPACK compile-time value", "https://nxdjdkoamvertmzgslyq.supabase.co") || '';
+        const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || '';
+        // Track if setAll was called
+        let setAllWasCalled = false;
+        const cookiesToSet = [];
+        // Create mutable response that will be updated
+        let response = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: true
         });
         // Create Supabase client with cookie handling
-        const supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$supabase$2b$ssr$40$0$2e$1$2e$0_$40$supabase$2b$supabase$2d$js$40$2$2e$84$2e$0$2f$node_modules$2f40$supabase$2f$ssr$2f$dist$2f$index$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createServerClient"])(("TURBOPACK compile-time value", "https://nxdjdkoamvertmzgslyq.supabase.co"), ("TURBOPACK compile-time value", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54ZGpka29hbXZlcnRtemdzbHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5OTUwMTgsImV4cCI6MjA3OTU3MTAxOH0.2qdDKkJUEPI-bsA15NuEe4vz9XjsFQuZmtYeF_UbOzI"), {
+        const supabase = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f40$supabase$2b$ssr$40$0$2e$1$2e$0_$40$supabase$2b$supabase$2d$js$40$2$2e$84$2e$0$2f$node_modules$2f40$supabase$2f$ssr$2f$dist$2f$index$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__["createServerClient"])(supabaseUrl, ("TURBOPACK compile-time value", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54ZGpka29hbXZlcnRtemdzbHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5OTUwMTgsImV4cCI6MjA3OTU3MTAxOH0.2qdDKkJUEPI-bsA15NuEe4vz9XjsFQuZmtYeF_UbOzI"), {
             cookies: {
                 getAll () {
                     return request.cookies.getAll();
                 },
-                setAll (cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options })=>{
-                        response.cookies.set(name, value, options);
+                setAll (cookies) {
+                    setAllWasCalled = true;
+                    // Store cookies to set
+                    cookies.forEach((cookie)=>{
+                        cookiesToSet.push(cookie);
+                    });
+                    // Create new response with cookies
+                    response = __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                        success: true
+                    });
+                    // Set all cookies on the response with proper options
+                    cookies.forEach(({ name, value, options })=>{
+                        response.cookies.set(name, value, {
+                            ...options,
+                            httpOnly: options?.httpOnly ?? true,
+                            secure: options?.secure ?? ("TURBOPACK compile-time value", "development") === 'production',
+                            sameSite: options?.sameSite ?? 'lax',
+                            path: options?.path ?? '/',
+                            ...options?.maxAge && {
+                                maxAge: options.maxAge
+                            }
+                        });
                     });
                 }
             }
         });
-        // Set the session - this will set cookies via the setAll callback
-        const { error } = await supabase.auth.setSession({
+        // IMPORTANT: setSession in API routes doesn't trigger setAll callback
+        // We need to manually set cookies in the exact format Supabase SSR expects
+        // First, validate the session by calling setSession
+        const { data: sessionData, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken
         });
         if (error) {
-            console.error('Failed to set session in API route:', error);
+            console.error('[sync-cookies] Failed to set session:', {
+                message: error.message,
+                status: error.status,
+                error
+            });
             return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                 success: false,
                 error: error.message
@@ -94,9 +125,65 @@ async function POST(request) {
                 status: 500
             });
         }
+        if (!sessionData.session) {
+            console.error('[sync-cookies] No session returned after setSession');
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Failed to create session'
+            }, {
+                status: 500
+            });
+        }
+        // Check if setAll was called (it usually won't be in API routes)
+        let allCookies = response.cookies.getAll();
+        // Always manually set cookies because setSession in API routes doesn't trigger setAll
+        // Supabase SSR expects cookies in a specific format
+        const sessionCookieName = `sb-${projectRef}-auth-token`;
+        // Supabase SSR stores the session as a JSON string in the cookie
+        // The format matches what's stored in localStorage
+        const sessionValue = {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_at: sessionData.session.expires_at,
+            expires_in: sessionData.session.expires_in,
+            token_type: sessionData.session.token_type,
+            user: sessionData.session.user
+        };
+        // Calculate maxAge from expires_at (Unix timestamp)
+        const expiresAt = sessionData.session.expires_at;
+        const maxAge = expiresAt ? Math.max(0, expiresAt - Math.floor(Date.now() / 1000)) : 60 * 60 * 24 * 7 // Default to 7 days if no expires_at
+        ;
+        // Set the session cookie - this is what Supabase SSR reads
+        response.cookies.set(sessionCookieName, JSON.stringify(sessionValue), {
+            httpOnly: true,
+            secure: ("TURBOPACK compile-time value", "development") === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: maxAge
+        });
+        // Supabase SSR may also look for code verifier cookies, but the main auth token is critical
+        // We can optionally set additional cookies if needed, but the auth-token cookie should be sufficient
+        // Verify cookies were set
+        allCookies = response.cookies.getAll();
+        console.log('[sync-cookies] After setting cookies, count:', allCookies.length);
+        // Log what cookies were set
+        const cookieNames = allCookies.map((c)=>c.name).join(', ');
+        console.log('[sync-cookies] setAll was called:', setAllWasCalled);
+        console.log('[sync-cookies] Cookies set:', cookieNames || 'None');
+        console.log('[sync-cookies] Session user:', sessionData.session.user.email);
+        console.log('[sync-cookies] Total cookies in response:', allCookies.length);
+        // Debug: Log cookie details
+        if (allCookies.length > 0) {
+            allCookies.forEach((cookie)=>{
+                const valuePreview = cookie.value.length > 50 ? `${cookie.value.substring(0, 50)}...` : cookie.value;
+                console.log(`[sync-cookies] Cookie: ${cookie.name} (${cookie.value.length} chars)`);
+            });
+        } else {
+            console.error('[sync-cookies] ERROR: No cookies were set in the response!');
+        }
         return response;
     } catch (error) {
-        console.error('API route error:', error);
+        console.error('[sync-cookies] API route error:', error);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f2e$pnpm$2f$next$40$16$2e$0$2e$3_react$2d$dom$40$19$2e$2$2e$0_react$40$19$2e$2$2e$0_$5f$react$40$19$2e$2$2e$0$2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: false,
             error: error.message

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Search, UserCheck, UserX, Filter, ArrowLeft, Download } from "lucide-react"
+import { Loader2, Search, UserCheck, UserX, Filter, ArrowLeft, Download, RefreshCw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getAllUsers, approveUser, declineUser } from "@/app/actions/users"
+
+interface User {
+  id: string
+  email: string
+  role: string
+  first_name: string | null
+  last_name: string | null
+  phone: string | null
+  approved: boolean
+  created_at: string
+  last_login: string | null
+}
 
 export default function AdminUsersPage() {
   const { user, loading: authLoading, isAdmin } = useAuth()
@@ -26,45 +39,55 @@ export default function AdminUsersPage() {
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<"all" | "approved" | "pending">("all")
-  const [selectedUser, setSelectedUser] = useState<any | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [actionDialog, setActionDialog] = useState<"approve" | "decline" | null>(null)
-
-  // Mock users data
-  const [users] = useState([
-    {
-      id: "1",
-      email: "john.smith@greentech.co.za",
-      first_name: "John",
-      last_name: "Smith",
-      company: "GreenTech Solutions",
-      phone: "+27 123 456 7890",
-      approved: true,
-      created_at: new Date("2025-01-15"),
-      last_login: new Date("2025-03-20"),
-    },
-    {
-      id: "2",
-      email: "sarah.jones@manufacturing.co.za",
-      first_name: "Sarah",
-      last_name: "Jones",
-      company: "SA Manufacturing",
-      phone: "+27 234 567 8901",
-      approved: false,
-      created_at: new Date("2025-03-18"),
-      last_login: null,
-    },
-    {
-      id: "3",
-      email: "michael.brown@techstart.co.za",
-      first_name: "Michael",
-      last_name: "Brown",
-      company: "TechStart Innovations",
-      phone: "+27 345 678 9012",
-      approved: false,
-      created_at: new Date("2025-03-19"),
-      last_login: null,
-    },
-  ])
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+  // Fetch users from database
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      console.log('[AdminUsersPage] Starting to fetch users...')
+      
+      // Call server action
+      const response = await getAllUsers()
+      
+      console.log('[AdminUsersPage] getAllUsers response:', {
+        success: response.success,
+        dataLength: response.data?.length,
+        error: response.error,
+        errorCode: (response as any).errorCode,
+      })
+      
+      if (response.success && response.data) {
+        console.log(`[AdminUsersPage] Successfully loaded ${response.data.length} users`)
+        setUsers(response.data)
+      } else {
+        console.error('[AdminUsersPage] Failed to load users:', response.error)
+        
+        // Show error message - don't auto-refresh to avoid loops
+        toast({
+          title: "Failed to load users",
+          description: response.error || "An error occurred while fetching users. Please refresh the page manually.",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("[AdminUsersPage] Unexpected error fetching users:", {
+        message: error.message,
+        stack: error.stack,
+        error,
+      })
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load users. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!authLoading) {
@@ -72,6 +95,11 @@ export default function AdminUsersPage() {
         router.push("/login")
       } else if (!isAdmin) {
         router.push("/dashboard")
+      } else {
+        // Fetch users when admin is authenticated
+        // Middleware will handle session management
+        console.log('[AdminUsersPage] Admin user verified, fetching users...')
+        fetchUsers()
       }
     }
   }, [user, authLoading, isAdmin, router])
@@ -85,11 +113,14 @@ export default function AdminUsersPage() {
   }
 
   const filteredUsers = users.filter((u) => {
+    const firstName = (u.first_name || "").toLowerCase()
+    const lastName = (u.last_name || "").toLowerCase()
+    const email = (u.email || "").toLowerCase()
+    
     const matchesSearch =
-      u.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.company.toLowerCase().includes(searchQuery.toLowerCase())
+      firstName.includes(searchQuery.toLowerCase()) ||
+      lastName.includes(searchQuery.toLowerCase()) ||
+      email.includes(searchQuery.toLowerCase())
 
     const matchesFilter =
       filterStatus === "all" ||
@@ -103,22 +134,35 @@ export default function AdminUsersPage() {
     if (!selectedUser) return
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      setActionLoading(true)
+      const response = await approveUser(selectedUser.id)
 
-      toast({
-        title: "User approved",
-        description: `${selectedUser.first_name} ${selectedUser.last_name} can now access the platform.`,
-      })
-
-      setActionDialog(null)
-      setSelectedUser(null)
-    } catch (error) {
+      if (response.success) {
+        toast({
+          title: "User approved",
+          description: `${selectedUser.first_name || ""} ${selectedUser.last_name || ""} can now access the platform.`,
+        })
+        
+        // Refresh users list
+        await fetchUsers()
+        setActionDialog(null)
+        setSelectedUser(null)
+      } else {
+        toast({
+          title: "Action failed",
+          description: response.error || "Failed to approve user. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error approving user:", error)
       toast({
         title: "Action failed",
-        description: "Failed to approve user. Please try again.",
+        description: error.message || "Failed to approve user. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -126,22 +170,35 @@ export default function AdminUsersPage() {
     if (!selectedUser) return
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      setActionLoading(true)
+      const response = await declineUser(selectedUser.id)
 
-      toast({
-        title: "User declined",
-        description: `${selectedUser.first_name} ${selectedUser.last_name}'s application has been declined.`,
-      })
-
-      setActionDialog(null)
-      setSelectedUser(null)
-    } catch (error) {
+      if (response.success) {
+        toast({
+          title: "User declined",
+          description: `${selectedUser.first_name || ""} ${selectedUser.last_name || ""}'s application has been declined.`,
+        })
+        
+        // Refresh users list
+        await fetchUsers()
+        setActionDialog(null)
+        setSelectedUser(null)
+      } else {
+        toast({
+          title: "Action failed",
+          description: response.error || "Failed to decline user. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      console.error("Error declining user:", error)
       toast({
         title: "Action failed",
-        description: "Failed to decline user. Please try again.",
+        description: error.message || "Failed to decline user. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -157,10 +214,21 @@ export default function AdminUsersPage() {
             <h1 className="text-3xl font-bold text-foreground">User Management</h1>
             <p className="text-muted-foreground">Manage user accounts and access approvals</p>
           </div>
-          <Button variant="outline" className="gap-2 bg-transparent">
-            <Download className="h-4 w-4" />
-            Export Users
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2 bg-transparent" 
+              onClick={fetchUsers}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button variant="outline" className="gap-2 bg-transparent">
+              <Download className="h-4 w-4" />
+              Export Users
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -209,7 +277,7 @@ export default function AdminUsersPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name, email, or company..."
+                  placeholder="Search by name or email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -241,8 +309,8 @@ export default function AdminUsersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
-                  <TableHead>Company</TableHead>
                   <TableHead>Contact</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead>Last Login</TableHead>
@@ -250,33 +318,57 @@ export default function AdminUsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {u.first_name} {u.last_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{u.email}</p>
-                      </div>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+                      <p className="text-sm text-muted-foreground mt-2">Loading users...</p>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{u.company}</TableCell>
-                    <TableCell className="text-muted-foreground">{u.phone}</TableCell>
-                    <TableCell>
-                      {u.approved ? (
-                        <Badge variant="outline" className="bg-success/10 text-success">
-                          Approved
+                  </TableRow>
+                ) : filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <p className="text-muted-foreground">
+                        {searchQuery || filterStatus !== "all" 
+                          ? "No users match your filters" 
+                          : "No users found"}
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {u.first_name || ""} {u.last_name || ""}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{u.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{u.phone || "N/A"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {u.role || "smme"}
                         </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-chart-4/10 text-chart-4">
-                          Pending
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{u.created_at.toLocaleDateString()}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {u.last_login ? u.last_login.toLocaleDateString() : "Never"}
-                    </TableCell>
+                      </TableCell>
+                      <TableCell>
+                        {u.approved ? (
+                          <Badge variant="outline" className="bg-success/10 text-success">
+                            Approved
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4">
+                            Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {u.last_login ? new Date(u.last_login).toLocaleDateString() : "Never"}
+                      </TableCell>
                     <TableCell className="text-right">
                       {u.approved ? (
                         <Button variant="ghost" size="sm">
@@ -310,7 +402,8 @@ export default function AdminUsersPage() {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -331,22 +424,38 @@ export default function AdminUsersPage() {
             {selectedUser && (
               <div className="rounded-lg bg-muted p-4 space-y-2">
                 <p className="text-sm">
-                  <strong>Name:</strong> {selectedUser.first_name} {selectedUser.last_name}
+                  <strong>Name:</strong> {selectedUser.first_name || ""} {selectedUser.last_name || ""}
                 </p>
                 <p className="text-sm">
                   <strong>Email:</strong> {selectedUser.email}
                 </p>
                 <p className="text-sm">
-                  <strong>Company:</strong> {selectedUser.company}
+                  <strong>Role:</strong> {selectedUser.role || "smme"}
                 </p>
+                {selectedUser.phone && (
+                  <p className="text-sm">
+                    <strong>Phone:</strong> {selectedUser.phone}
+                  </p>
+                )}
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setActionDialog(null)}>
+              <Button variant="outline" onClick={() => setActionDialog(null)} disabled={actionLoading}>
                 Cancel
               </Button>
-              <Button onClick={handleApprove} className="bg-success hover:bg-success/90">
-                Approve User
+              <Button 
+                onClick={handleApprove} 
+                className="bg-success hover:bg-success/90"
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  "Approve User"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -365,22 +474,38 @@ export default function AdminUsersPage() {
             {selectedUser && (
               <div className="rounded-lg bg-muted p-4 space-y-2">
                 <p className="text-sm">
-                  <strong>Name:</strong> {selectedUser.first_name} {selectedUser.last_name}
+                  <strong>Name:</strong> {selectedUser.first_name || ""} {selectedUser.last_name || ""}
                 </p>
                 <p className="text-sm">
                   <strong>Email:</strong> {selectedUser.email}
                 </p>
                 <p className="text-sm">
-                  <strong>Company:</strong> {selectedUser.company}
+                  <strong>Role:</strong> {selectedUser.role || "smme"}
                 </p>
+                {selectedUser.phone && (
+                  <p className="text-sm">
+                    <strong>Phone:</strong> {selectedUser.phone}
+                  </p>
+                )}
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setActionDialog(null)}>
+              <Button variant="outline" onClick={() => setActionDialog(null)} disabled={actionLoading}>
                 Cancel
               </Button>
-              <Button onClick={handleDecline} variant="destructive">
-                Decline User
+              <Button 
+                onClick={handleDecline} 
+                variant="destructive"
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Declining...
+                  </>
+                ) : (
+                  "Decline User"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

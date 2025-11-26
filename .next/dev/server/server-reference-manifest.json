@@ -1,5 +1,65 @@
 {
-  "node": {},
+  "node": {
+    "00bb7fc876b5d429ebf45c202731d453991d49206f": {
+      "workers": {
+        "app/login/page": {
+          "moduleId": "[project]/.next-internal/server/app/login/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/user-profiles.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "isProfileComplete",
+          "filename": "app/actions/user-profiles.ts"
+        },
+        "app/onboarding/page": {
+          "moduleId": "[project]/.next-internal/server/app/onboarding/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/user-profiles.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "isProfileComplete",
+          "filename": "app/actions/user-profiles.ts"
+        },
+        "app/pending-approval/page": {
+          "moduleId": "[project]/.next-internal/server/app/pending-approval/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/user-profiles.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "isProfileComplete",
+          "filename": "app/actions/user-profiles.ts"
+        }
+      },
+      "layer": {
+        "app/login/page": "action-browser",
+        "app/onboarding/page": "action-browser",
+        "app/pending-approval/page": "action-browser"
+      },
+      "filename": "app/actions/user-profiles.ts",
+      "exportedName": "isProfileComplete"
+    },
+    "407bcd04fecfe2a2b2a8efaabed3cbf083edb8023b": {
+      "workers": {
+        "app/dashboard/business-profile/page": {
+          "moduleId": "[project]/.next-internal/server/app/dashboard/business-profile/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/user-profiles.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "upsertUserProfile",
+          "filename": "app/actions/user-profiles.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/business-profile/page": "action-browser"
+      },
+      "filename": "app/actions/user-profiles.ts",
+      "exportedName": "upsertUserProfile"
+    },
+    "004ab1230c9b936f1e516085b77bf56571976af577": {
+      "workers": {
+        "app/dashboard/business-profile/page": {
+          "moduleId": "[project]/.next-internal/server/app/dashboard/business-profile/page/actions.js { ACTIONS_MODULE0 => \"[project]/app/actions/user-profiles.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getUserProfile",
+          "filename": "app/actions/user-profiles.ts"
+        }
+      },
+      "layer": {
+        "app/dashboard/business-profile/page": "action-browser"
+      },
+      "filename": "app/actions/user-profiles.ts",
+      "exportedName": "getUserProfile"
+    }
+  },
   "edge": {},
-  "encryptionKey": "kGDBIcy+Reb4/hxM516hgB5E2rJhi3ZOnCBzPHK9s+U="
+  "encryptionKey": "uY/hK2r5klUjQHDplBlN1uAbL1P5I5uXAYUq8wvMUEY="
 }

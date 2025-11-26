@@ -13,12 +13,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Building, Upload, CheckCircle2 } from "lucide-react"
+import { upsertUserProfile, getUserProfile } from "@/app/actions/user-profiles"
 
 export default function BusinessProfilePage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [loadingProfile, setLoadingProfile] = useState(true)
   const [saved, setSaved] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -36,13 +38,64 @@ export default function BusinessProfilePage() {
     preferredFundingTypes: [] as string[],
   })
 
+  // Load existing profile data when component mounts
+  useEffect(() => {
+    let isMounted = true
+    
+    const loadProfile = async () => {
+      if (!user || authLoading) {
+        if (isMounted) {
+          setLoadingProfile(false)
+        }
+        return
+      }
+
+      try {
+        // Don't sync cookies - NextAuth handles this automatically
+        const result = await getUserProfile()
+        if (!isMounted) return
+        
+        if (result.success && result.data) {
+          const profile = result.data
+          setFormData({
+            companyName: profile.company_name || "",
+            registrationNumber: profile.registration_number || "",
+            industry: profile.industry || "",
+            businessDescription: profile.business_description || "",
+            annualRevenue: profile.annual_revenue?.toString() || "",
+            employeesCount: profile.employees_count?.toString() || "",
+            yearsInBusiness: profile.years_in_business?.toString() || "",
+            location: profile.location || "",
+            fundingAmountNeeded: (profile.funding_requirements as any)?.amount_needed?.toString() || "",
+            fundingPurpose: (profile.funding_requirements as any)?.funding_purpose || "",
+            businessStage: (profile.funding_requirements as any)?.business_stage || "growth",
+            preferredFundingTypes: (profile.funding_requirements as any)?.preferred_funding_type || [],
+          })
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error)
+        // Don't show error to user - just proceed with empty form
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false)
+        }
+      }
+    }
+
+    loadProfile()
+    
+    return () => {
+      isMounted = false
+    }
+  }, [user?.id, authLoading]) // Use user?.id instead of entire user object
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login")
     }
   }, [user, authLoading, router])
 
-  if (authLoading || !user) {
+  if (authLoading || !user || loadingProfile) {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -59,22 +112,157 @@ export default function BusinessProfilePage() {
     setLoading(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Validate required numeric fields
+      const annualRevenue = parseFloat(formData.annualRevenue)
+      const employeesCount = parseInt(formData.employeesCount)
+      const yearsInBusiness = parseInt(formData.yearsInBusiness)
+      const fundingAmountNeeded = parseFloat(formData.fundingAmountNeeded)
+
+      if (isNaN(annualRevenue) || annualRevenue < 0) {
+        toast({
+          title: "Validation error",
+          description: "Please enter a valid annual revenue amount.",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
+      if (isNaN(employeesCount) || employeesCount < 0) {
+        toast({
+          title: "Validation error",
+          description: "Please enter a valid number of employees.",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
+      if (isNaN(yearsInBusiness) || yearsInBusiness < 0) {
+        toast({
+          title: "Validation error",
+          description: "Please enter a valid number of years in business.",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
+      if (isNaN(fundingAmountNeeded) || fundingAmountNeeded < 0) {
+        toast({
+          title: "Validation error",
+          description: "Please enter a valid funding amount.",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
+      // Transform form data to match database schema
+      const profileData = {
+        company_name: formData.companyName.trim(),
+        registration_number: formData.registrationNumber.trim(),
+        industry: formData.industry,
+        business_description: formData.businessDescription.trim(),
+        annual_revenue: annualRevenue,
+        employees_count: employeesCount,
+        years_in_business: yearsInBusiness,
+        location: formData.location.trim(),
+        funding_requirements: {
+          amount_needed: fundingAmountNeeded,
+          funding_purpose: formData.fundingPurpose.trim(),
+          business_stage: formData.businessStage as "startup" | "growth" | "expansion" | "mature",
+          industry_sector: formData.industry ? [formData.industry] : [], // Use industry as sector
+          preferred_funding_type: formData.preferredFundingTypes.length > 0 
+            ? formData.preferredFundingTypes 
+            : ["Grant", "Loan"], // Default if empty
+        },
+      }
+
+      // Sync session to cookies before calling server action
+      // This ensures the server can read the session
+      const sessionSynced = await syncSessionToCookies()
+      if (!sessionSynced) {
+        console.warn('Failed to sync session to cookies, but proceeding anyway')
+      }
+
+      // Call server action to save profile
+      const result = await upsertUserProfile(profileData)
+
+      if (!result.success) {
+        // If authentication error, try syncing again and retry once
+        if (result.error?.includes('Authentication required')) {
+          console.log('Authentication error detected, attempting to sync session and retry...')
+          
+          // Try syncing again
+          const retrySync = await syncSessionToCookies()
+          if (retrySync) {
+            // Retry the server action once
+            const retryResult = await upsertUserProfile(profileData)
+            if (retryResult.success) {
+              // Success on retry, continue with normal flow
+              setSaved(true)
+              
+              if (user.approved) {
+                toast({
+                  title: "Profile saved!",
+                  description: "Your business profile has been updated. AI is now finding matches...",
+                })
+                setTimeout(() => {
+                  router.push("/dashboard")
+                }, 2000)
+              } else {
+                toast({
+                  title: "Profile complete!",
+                  description: "Your business profile has been submitted for admin review. You'll be notified once approved.",
+                })
+                setTimeout(() => {
+                  router.push("/pending-approval")
+                }, 2000)
+              }
+              return
+            }
+          }
+          
+          // If retry failed, show error and redirect
+          toast({
+            title: "Session expired",
+            description: "Please log in again to continue.",
+            variant: "destructive",
+          })
+          setTimeout(() => {
+            router.push("/login")
+          }, 1500)
+          return
+        }
+        throw new Error(result.error || "Failed to save profile")
+      }
 
       setSaved(true)
-      toast({
-        title: "Profile saved!",
-        description: "Your business profile has been updated. AI is now finding matches...",
-      })
-
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 2000)
-    } catch (error) {
+      
+      // Determine redirect based on approval status
+      if (user.approved) {
+        toast({
+          title: "Profile saved!",
+          description: "Your business profile has been updated. AI is now finding matches...",
+        })
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 2000)
+      } else {
+        toast({
+          title: "Profile complete!",
+          description: "Your business profile has been submitted for admin review. You'll be notified once approved.",
+        })
+        setTimeout(() => {
+          router.push("/pending-approval")
+        }, 2000)
+      }
+    } catch (error: any) {
+      console.error("Error saving profile:", error)
       toast({
         title: "Save failed",
-        description: "Failed to save profile. Please try again.",
+        description: error.message || "Failed to save profile. Please try again.",
         variant: "destructive",
       })
     } finally {

@@ -21,17 +21,20 @@ export interface User {
 export interface UserProfile {
   id: string
   user_id: string
-  company_name: string
-  registration_number: string
-  industry: string
-  business_description: string
-  annual_revenue: number
-  employees_count: number
-  years_in_business: number
-  location: string
-  funding_requirements: FundingRequirements
-  documents: Document[]
+  // All fields below are nullable in the database (TEXT, NUMERIC, INTEGER, JSONB can be null)
+  company_name: string | null
+  registration_number: string | null
+  industry: string | null
+  business_description: string | null
+  annual_revenue: number | null
+  employees_count: number | null
+  years_in_business: number | null
+  location: string | null
+  funding_requirements: FundingRequirements | null
   updated_at: Date
+  // Note: documents is not a database column - it's a computed/joined field
+  // It should be populated separately when needed
+  documents?: Document[]
 }
 
 export interface FundingRequirements {

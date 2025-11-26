@@ -1,39 +1,123 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search, Sparkles, Calendar, DollarSign, Filter, TrendingUp } from "lucide-react"
-import { mockFundingOpportunities, mockMatches } from "@/lib/mock-data"
+import { Loader2, Search, Sparkles, Calendar, DollarSign, Filter, TrendingUp, Building } from "lucide-react"
+import { getAllOpportunities } from "@/app/actions/opportunities"
+import { getUserMatches } from "@/app/actions/matches"
 import { AIMatchingService } from "@/lib/ai-service"
-import type { FundingOpportunity } from "@/lib/db-schema"
+import type { FundingOpportunity, Match } from "@/lib/db-schema"
 
 export default function OpportunitiesClient() {
-  const [opportunities, setOpportunities] = useState<FundingOpportunity[]>(mockFundingOpportunities)
+  const [opportunities, setOpportunities] = useState<FundingOpportunity[]>([])
+  const [matches, setMatches] = useState<Match[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [searchLoading, setSearchLoading] = useState(false)
+
+  // Load opportunities and matches on mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const [oppsResult, matchesResult] = await Promise.all([
+          getAllOpportunities(),
+          getUserMatches(),
+        ])
+
+        if (oppsResult.success && oppsResult.data) {
+          // Transform Prisma data to match schema format
+          const transformedOpps = (oppsResult.data as any[]).map((o: any) => ({
+            id: o.id,
+            funder_name: o.funderName,
+            program_name: o.programName,
+            description: o.description,
+            amount_range_min: Number(o.amountRangeMin),
+            amount_range_max: Number(o.amountRangeMax),
+            eligibility_criteria: o.eligibilityCriteria || [],
+            application_url: o.applicationUrl,
+            deadline: o.deadline ? new Date(o.deadline) : new Date(),
+            industry_focus: o.industryFocus || [],
+            funding_type: o.fundingType,
+            requirements: o.requirements || [],
+            created_at: o.createdAt ? new Date(o.createdAt) : new Date(),
+          }))
+          setOpportunities(transformedOpps)
+        }
+
+        if (matchesResult.success && matchesResult.data) {
+          // Transform Prisma data to match schema format
+          const transformedMatches = (matchesResult.data as any[]).map((m: any) => ({
+            id: m.id,
+            user_id: m.userId,
+            opportunity_id: m.opportunityId,
+            match_score: m.matchScore,
+            match_reasons: m.matchReasons || [],
+            status: m.status,
+            created_at: m.createdAt ? new Date(m.createdAt) : new Date(),
+            viewed_at: m.viewedAt ? new Date(m.viewedAt) : null,
+          }))
+          setMatches(transformedMatches)
+        }
+      } catch (error) {
+        console.error('Error loading opportunities:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
-      setOpportunities(mockFundingOpportunities)
+      // Reload all opportunities
+      const result = await getAllOpportunities()
+      if (result.success && result.data) {
+        const transformedOpps = (result.data as any[]).map((o: any) => ({
+          id: o.id,
+          funder_name: o.funderName,
+          program_name: o.programName,
+          description: o.description,
+          amount_range_min: Number(o.amountRangeMin),
+          amount_range_max: Number(o.amountRangeMax),
+          eligibility_criteria: o.eligibilityCriteria || [],
+          application_url: o.applicationUrl,
+          deadline: o.deadline ? new Date(o.deadline) : new Date(),
+          industry_focus: o.industryFocus || [],
+          funding_type: o.fundingType,
+          requirements: o.requirements || [],
+          created_at: o.createdAt ? new Date(o.createdAt) : new Date(),
+        }))
+        setOpportunities(transformedOpps)
+      }
       return
     }
 
-    setLoading(true)
+    setSearchLoading(true)
     try {
-      const results = await AIMatchingService.searchOpportunities(searchQuery, mockFundingOpportunities)
+      const results = await AIMatchingService.searchOpportunities(searchQuery, opportunities)
       setOpportunities(results)
     } finally {
-      setLoading(false)
+      setSearchLoading(false)
     }
   }
 
   const getMatchScore = (opportunityId: string) => {
-    const match = mockMatches.find((m) => m.opportunity_id === opportunityId)
+    const match = matches.find((m) => m.opportunity_id === opportunityId)
     return match?.match_score
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   const formatCurrency = (amount: number) => {
@@ -75,8 +159,8 @@ export default function OpportunitiesClient() {
                   className="pl-10"
                 />
               </div>
-              <Button onClick={handleSearch} disabled={loading}>
-                {loading ? (
+              <Button onClick={handleSearch} disabled={searchLoading}>
+                {searchLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Searching...
@@ -165,9 +249,9 @@ export default function OpportunitiesClient() {
                           Why this matches you:
                         </p>
                         <ul className="text-sm text-muted-foreground space-y-1 ml-5 list-disc">
-                          {mockMatches
-                            .find((m) => m.opportunity_id === opportunity.id)
-                            ?.match_reasons.map((reason, idx) => (
+                          {matches
+                            .find((m: Match) => m.opportunity_id === opportunity.id)
+                            ?.match_reasons.map((reason: string, idx: number) => (
                               <li key={idx}>{reason}</li>
                             ))}
                         </ul>
@@ -187,11 +271,22 @@ export default function OpportunitiesClient() {
           ) : (
             <Card className="bg-card">
               <CardContent className="py-12 text-center">
-                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium text-foreground mb-2">No opportunities found</p>
-                <p className="text-muted-foreground">
-                  Try adjusting your search terms or check back later for new opportunities
+                <Building className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium text-foreground mb-2">
+                  {searchQuery.trim() ? 'No opportunities found' : 'No Funding Opportunities Available'}
                 </p>
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery.trim() 
+                    ? 'Try adjusting your search terms or check back later for new opportunities.'
+                    : 'There are currently no funding opportunities available. Please check back later or contact support for more information.'}
+                </p>
+                {!searchQuery.trim() && (
+                  <div className="mt-6 p-4 bg-primary/5 border border-primary/10 rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      <strong className="text-foreground">Tip:</strong> Complete your business profile to get notified when new opportunities become available.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -31,6 +31,7 @@ interface User {
   approved: boolean
   created_at: string
   last_login: string | null
+  password_hash?: string | null // Optional - added to check if user needs password migration
 }
 
 export default function AdminUsersPage() {
@@ -44,34 +45,76 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
-  // Fetch users from database
-  const fetchUsers = async () => {
+  const isFetchingRef = useRef(false)
+  const hasInitialFetchRef = useRef(false)
+  const mountedRef = useRef(true)
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+  
+  // Fetch users from database - use ref to store function to avoid dependency issues
+  const fetchUsersRef = useRef<(() => Promise<void>) | null>(null)
+  
+  fetchUsersRef.current = async () => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      console.log('[AdminUsersPage] Already fetching users, skipping...')
+      return
+    }
+    
+    // Don't fetch if component is unmounted
+    if (!mountedRef.current) {
+      console.log('[AdminUsersPage] Component unmounted, skipping fetch...')
+      return
+    }
+    
     try {
+      isFetchingRef.current = true
       setLoading(true)
       console.log('[AdminUsersPage] Starting to fetch users...')
       
       // Call server action
       const response = await getAllUsers()
       
+      // Check if component is still mounted before updating state
+      if (!mountedRef.current) {
+        console.log('[AdminUsersPage] Component unmounted during fetch, aborting state update')
+        return
+      }
+      
+      // Normalize data to always be an array for getAllUsers
+      const usersData = response.data
+      const usersArray: User[] = Array.isArray(usersData) 
+        ? usersData 
+        : usersData 
+          ? [usersData] 
+          : []
+      
       console.log('[AdminUsersPage] getAllUsers response:', {
         success: response.success,
-        dataLength: response.data?.length,
+        dataLength: usersArray.length,
         error: response.error,
         errorCode: (response as any).errorCode,
       })
       
-      if (response.success && response.data) {
-        console.log(`[AdminUsersPage] Successfully loaded ${response.data.length} users`)
-        setUsers(response.data)
+      if (response.success) {
+        console.log(`[AdminUsersPage] Successfully loaded ${usersArray.length} users`)
+        setUsers(usersArray)
       } else {
         console.error('[AdminUsersPage] Failed to load users:', response.error)
         
         // Show error message - don't auto-refresh to avoid loops
-        toast({
-          title: "Failed to load users",
-          description: response.error || "An error occurred while fetching users. Please refresh the page manually.",
-          variant: "destructive",
-        })
+        if (mountedRef.current) {
+          toast({
+            title: "Failed to load users",
+            description: response.error || "An error occurred while fetching users. Please refresh the page manually.",
+            variant: "destructive",
+          })
+        }
       }
     } catch (error: any) {
       console.error("[AdminUsersPage] Unexpected error fetching users:", {
@@ -79,30 +122,60 @@ export default function AdminUsersPage() {
         stack: error.stack,
         error,
       })
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load users. Please try again.",
-        variant: "destructive",
-      })
+      if (mountedRef.current) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load users. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setLoading(false)
+      if (mountedRef.current) {
+        setLoading(false)
+      }
+      isFetchingRef.current = false
     }
   }
 
+  // Single effect for auth check, redirect, and initial fetch
+  // Stable dependency array - always the same size
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push("/login")
-      } else if (!isAdmin) {
-        router.push("/dashboard")
-      } else {
-        // Fetch users when admin is authenticated
-        // Middleware will handle session management
-        console.log('[AdminUsersPage] Admin user verified, fetching users...')
-        fetchUsers()
-      }
+    // Wait for auth to load
+    if (authLoading) {
+      console.log('[AdminUsersPage] Waiting for auth to load...')
+      return
     }
-  }, [user, authLoading, isAdmin, router])
+    
+    // Handle redirects
+    if (!user) {
+      console.log('[AdminUsersPage] No user, redirecting to login')
+      router.push("/login")
+      return
+    }
+    
+    if (!isAdmin) {
+      console.log('[AdminUsersPage] User is not admin, redirecting to dashboard')
+      router.push("/dashboard")
+      return
+    }
+    
+    // Only fetch once when all conditions are met
+    // Use a strict check to prevent any re-fetches
+    if (hasInitialFetchRef.current) {
+      console.log('[AdminUsersPage] Already fetched, skipping...')
+      return
+    }
+    
+    hasInitialFetchRef.current = true
+    console.log('[AdminUsersPage] Initial fetch - admin authenticated', { userId: user.id, email: user.email })
+    
+    // Use ref to call function - avoids dependency issues
+    if (fetchUsersRef.current) {
+      fetchUsersRef.current()
+    } else {
+      console.error('[AdminUsersPage] fetchUsersRef.current is null!')
+    }
+  }, [authLoading, user, isAdmin, router]) // Stable dependency array
 
   if (authLoading || !user || !isAdmin) {
     return (
@@ -144,7 +217,9 @@ export default function AdminUsersPage() {
         })
         
         // Refresh users list
-        await fetchUsers()
+        if (fetchUsersRef.current) {
+          await fetchUsersRef.current()
+        }
         setActionDialog(null)
         setSelectedUser(null)
       } else {
@@ -180,7 +255,9 @@ export default function AdminUsersPage() {
         })
         
         // Refresh users list
-        await fetchUsers()
+        if (fetchUsersRef.current) {
+          await fetchUsersRef.current()
+        }
         setActionDialog(null)
         setSelectedUser(null)
       } else {
@@ -218,7 +295,7 @@ export default function AdminUsersPage() {
             <Button 
               variant="outline" 
               className="gap-2 bg-transparent" 
-              onClick={fetchUsers}
+              onClick={() => fetchUsersRef.current?.()}
               disabled={loading}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -232,7 +309,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -265,6 +342,18 @@ export default function AdminUsersPage() {
                   <p className="text-2xl font-bold text-foreground">{users.filter((u) => !u.approved).length}</p>
                 </div>
                 <UserX className="h-8 w-8 text-chart-4" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Need Password</p>
+                  <p className="text-2xl font-bold text-foreground">{users.filter((u) => !u.password_hash).length}</p>
+                </div>
+                <UserX className="h-8 w-8 text-chart-3" />
               </div>
             </CardContent>
           </Card>
@@ -353,15 +442,22 @@ export default function AdminUsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {u.approved ? (
-                          <Badge variant="outline" className="bg-success/10 text-success">
-                            Approved
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-chart-4/10 text-chart-4">
-                            Pending
-                          </Badge>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {u.approved ? (
+                            <Badge variant="outline" className="bg-success/10 text-success w-fit">
+                              Approved
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-chart-4/10 text-chart-4 w-fit">
+                              Pending
+                            </Badge>
+                          )}
+                          {!u.password_hash && (
+                            <Badge variant="outline" className="bg-chart-3/10 text-chart-3 w-fit text-xs">
+                              Needs Password
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString() : "N/A"}

@@ -4,35 +4,47 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { AuthService } from "@/lib/auth"
+import { requestPasswordResetAction, resetPasswordAction } from "@/app/actions/auth-nextauth"
 import { Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
 
 export default function ForgotPasswordPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [step, setStep] = useState<"request" | "reset">("request")
   const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      await AuthService.resetPassword(email)
-      setSuccess(true)
-      toast({
-        title: "Reset email sent",
-        description: "Check your inbox for password reset instructions.",
-      })
+      const result = await requestPasswordResetAction(email)
+      if (result.success) {
+        setStep("reset")
+        toast({
+          title: "Email verified",
+          description: "Please set your new password below.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to verify email. Please try again.",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send reset email. Please try again.",
+        description: "Failed to verify email. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -40,26 +52,122 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  if (success) {
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords do not match",
+        description: "Please ensure both passwords are identical.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const result = await resetPasswordAction(email, newPassword)
+      if (result.success) {
+        toast({
+          title: "Password set successfully",
+          description: "Your password has been set. You can now log in.",
+        })
+        router.push("/login")
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to set password. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to set password. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (step === "reset") {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-accent/30 px-4 py-12">
         <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
-                <CheckCircle2 className="h-8 w-8 text-success" />
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold">Set New Password</CardTitle>
+            <CardDescription>
+              Enter your new password for <strong>{email}</strong>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="Enter new password (min 8 characters)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                />
               </div>
-              <h2 className="mb-2 text-2xl font-bold text-foreground">Check Your Email</h2>
-              <p className="mb-6 text-muted-foreground">
-                We've sent password reset instructions to <strong>{email}</strong>. Please check your inbox and follow
-                the link to reset your password.
-              </p>
-              <Link href="/login">
-                <Button className="w-full">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  minLength={8}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Setting Password...
+                  </>
+                ) : (
+                  "Set Password"
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-6 space-y-2">
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setStep("request")}
+                disabled={loading}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <div className="text-center">
+                <Link href="/login" className="text-sm text-primary hover:underline">
                   Back to Login
-                </Button>
-              </Link>
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -73,11 +181,11 @@ export default function ForgotPasswordPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
           <CardDescription>
-            Enter your email address and we'll send you instructions to reset your password
+            Enter your email address to set or reset your password
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleRequestReset} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input
@@ -95,10 +203,10 @@ export default function ForgotPasswordPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  Verifying...
                 </>
               ) : (
-                "Send Reset Instructions"
+                "Continue"
               )}
             </Button>
           </form>

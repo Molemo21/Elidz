@@ -31,8 +31,13 @@ export const authConfig = {
 
         // Check if user has a password hash (migrated to JWT auth)
         if (!user.passwordHash) {
+          // User exists but doesn't have a password hash set
+          // This happens when:
+          // 1. User was created before JWT migration
+          // 2. User was created without a password
+          // Direct them to reset password to set one
           throw new Error(
-            'This account still uses Supabase authentication. Please contact support to migrate your account.'
+            'This account needs to set a password. Please use "Forgot Password" to set your password, or contact support for assistance.'
           )
         }
 

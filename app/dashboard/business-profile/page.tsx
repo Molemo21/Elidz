@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Building, Upload, CheckCircle2 } from "lucide-react"
 import { upsertUserProfile, getUserProfile } from "@/app/actions/user-profiles"
+import { generateMatchesForUser } from "@/app/actions/matches"
 
 export default function BusinessProfilePage() {
   const { user, loading: authLoading } = useAuth()
@@ -179,73 +180,58 @@ export default function BusinessProfilePage() {
         },
       }
 
-      // Sync session to cookies before calling server action
-      // This ensures the server can read the session
-      const sessionSynced = await syncSessionToCookies()
-      if (!sessionSynced) {
-        console.warn('Failed to sync session to cookies, but proceeding anyway')
-      }
-
       // Call server action to save profile
+      // NextAuth automatically handles session cookies, no manual sync needed
       const result = await upsertUserProfile(profileData)
 
       if (!result.success) {
-        // If authentication error, try syncing again and retry once
-        if (result.error?.includes('Authentication required')) {
-          console.log('Authentication error detected, attempting to sync session and retry...')
-          
-          // Try syncing again
-          const retrySync = await syncSessionToCookies()
-          if (retrySync) {
-            // Retry the server action once
-            const retryResult = await upsertUserProfile(profileData)
-            if (retryResult.success) {
-              // Success on retry, continue with normal flow
-              setSaved(true)
-              
-              if (user.approved) {
-                toast({
-                  title: "Profile saved!",
-                  description: "Your business profile has been updated. AI is now finding matches...",
-                })
-                setTimeout(() => {
-                  router.push("/dashboard")
-                }, 2000)
-              } else {
-                toast({
-                  title: "Profile complete!",
-                  description: "Your business profile has been submitted for admin review. You'll be notified once approved.",
-                })
-                setTimeout(() => {
-                  router.push("/pending-approval")
-                }, 2000)
-              }
-              return
-            }
-          }
-          
-          // If retry failed, show error and redirect
+        // If authentication error, show error message
+        if (result.error?.includes('Authentication required') || result.error?.includes('Unauthorized')) {
           toast({
-            title: "Session expired",
+            title: "Authentication required",
             description: "Please log in again to continue.",
             variant: "destructive",
           })
-          setTimeout(() => {
-            router.push("/login")
-          }, 1500)
+          router.push("/login")
           return
         }
-        throw new Error(result.error || "Failed to save profile")
+        
+        // Other errors
+        toast({
+          title: "Failed to save profile",
+          description: result.error || "An error occurred while saving your profile. Please try again.",
+          variant: "destructive",
+        })
+        return
       }
 
+      // Success
       setSaved(true)
       
-      // Determine redirect based on approval status
       if (user.approved) {
-        toast({
-          title: "Profile saved!",
-          description: "Your business profile has been updated. AI is now finding matches...",
-        })
+        // Generate matches for approved users
+        try {
+          const matchResult = await generateMatchesForUser()
+          if (matchResult.success && matchResult.data && matchResult.data.matchesCreated > 0) {
+            toast({
+              title: "Profile saved!",
+              description: `Your business profile has been updated. We found ${matchResult.data.matchesCreated} new funding match${matchResult.data.matchesCreated > 1 ? 'es' : ''} for you!`,
+            })
+          } else {
+            toast({
+              title: "Profile saved!",
+              description: "Your business profile has been updated. AI is analyzing opportunities...",
+            })
+          }
+        } catch (matchError) {
+          // Don't fail the profile save if matching fails
+          console.error('Error generating matches:', matchError)
+          toast({
+            title: "Profile saved!",
+            description: "Your business profile has been updated. We'll analyze opportunities shortly.",
+          })
+        }
+        
         setTimeout(() => {
           router.push("/dashboard")
         }, 2000)

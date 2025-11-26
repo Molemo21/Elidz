@@ -75,8 +75,8 @@ export default function LoginPage() {
       if (result?.error) {
         let errorMessage = "Invalid email or password. Please try again."
         
-        if (result.error.includes("password hash")) {
-          errorMessage = "This account still uses Supabase authentication. Please contact support to migrate your account."
+        if (result.error.includes("needs to set a password") || result.error.includes("password hash")) {
+          errorMessage = "This account needs to set a password. Please use the 'Forgot Password' link below to set your password."
         } else if (result.error.includes("Invalid")) {
           errorMessage = result.error
         }

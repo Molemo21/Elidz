@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Sparkles, Edit3, Save, Send, FileSignature, AlertCircle } from "lucide-react"
-import { mockFundingOpportunities } from "@/lib/mock-data"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { saveApplication } from "@/app/actions/applications"
+import { getOpportunityById } from "@/app/actions/opportunities"
+import type { FundingOpportunity } from "@/lib/db-schema"
 
 export default function NewApplicationPage() {
   const { user, loading: authLoading } = useAuth()
@@ -26,7 +28,8 @@ export default function NewApplicationPage() {
   const [signature, setSignature] = useState("")
 
   const opportunityId = searchParams.get("opportunityId")
-  const opportunity = mockFundingOpportunities.find((o) => o.id === opportunityId)
+  const [opportunity, setOpportunity] = useState<FundingOpportunity | null>(null)
+  const [opportunityLoading, setOpportunityLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     company_name: "GreenTech Solutions",
@@ -51,13 +54,91 @@ export default function NewApplicationPage() {
     tax_clearance_attached: false,
   })
 
+  // Track if we've already fetched to prevent multiple calls
+  const hasFetchedRef = useRef(false)
+
+  // Fetch opportunity from database
+  useEffect(() => {
+    // Don't fetch if auth is still loading
+    if (authLoading) return
+    
+    // Don't fetch if user is not logged in (handled by other effect)
+    if (!user) return
+
+    // Don't fetch if no opportunityId
+    if (!opportunityId) {
+      setOpportunityLoading(false)
+      return
+    }
+
+    // Prevent multiple fetches
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+
+    const fetchOpportunity = async () => {
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(opportunityId)) {
+        setOpportunityLoading(false)
+        toast({
+          title: "Invalid opportunity",
+          description: "The opportunity ID is invalid. Please select an opportunity from the opportunities page.",
+          variant: "destructive",
+        })
+        // Use setTimeout to avoid navigation during render
+        setTimeout(() => {
+          router.push("/opportunities")
+        }, 100)
+        return
+      }
+
+      try {
+        setOpportunityLoading(true)
+        const result = await getOpportunityById(opportunityId)
+        
+        if (result.success && result.data) {
+          // Convert Prisma date strings to Date objects if needed
+          const opp = result.data as any
+          setOpportunity({
+            ...opp,
+            deadline: opp.deadline ? new Date(opp.deadline) : new Date(),
+            created_at: opp.createdAt ? new Date(opp.createdAt) : new Date(),
+          })
+        } else {
+          toast({
+            title: "Opportunity not found",
+            description: result.error || "The opportunity you're looking for doesn't exist.",
+            variant: "destructive",
+          })
+          setTimeout(() => {
+            router.push("/opportunities")
+          }, 100)
+        }
+      } catch (error: any) {
+        console.error("Error fetching opportunity:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load opportunity details.",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          router.push("/opportunities")
+        }, 100)
+      } finally {
+        setOpportunityLoading(false)
+      }
+    }
+
+    fetchOpportunity()
+  }, [opportunityId, user, authLoading]) // Removed router and toast from dependencies
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login")
     }
   }, [user, authLoading, router])
 
-  if (authLoading || !user || !opportunity) {
+  if (authLoading || opportunityLoading || !user || !opportunity) {
     return (
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -71,14 +152,44 @@ export default function NewApplicationPage() {
   }
 
   const handleSaveDraft = async () => {
+    if (!opportunityId || !opportunity) {
+      toast({
+        title: "Error",
+        description: "Opportunity not found",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const result = await saveApplication(
+        {
+          opportunityId,
+          formData,
+        },
+        'draft'
+      )
+
+      if (result.success) {
+        toast({
+          title: "Draft saved",
+          description: "Your application has been saved. You can continue editing later.",
+        })
+        router.push("/dashboard")
+      } else {
+        toast({
+          title: "Failed to save",
+          description: result.error || "Could not save application draft",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
       toast({
-        title: "Draft saved",
-        description: "Your application has been saved. You can continue editing later.",
+        title: "Error",
+        description: error.message || "Failed to save draft",
+        variant: "destructive",
       })
-      router.push("/dashboard")
     } finally {
       setLoading(false)
     }
@@ -98,20 +209,54 @@ export default function NewApplicationPage() {
   }
 
   const handleSubmit = async () => {
+    if (!opportunityId || !opportunity) {
+      toast({
+        title: "Error",
+        description: "Opportunity not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!signature.trim()) {
+      toast({
+        title: "Signature required",
+        description: "Please enter your full name to sign the application.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setShowSignDialog(false)
     setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      toast({
-        title: "Application submitted!",
-        description: "Your application has been submitted successfully.",
-      })
-      router.push("/applications")
-    } catch (error) {
+      const result = await saveApplication(
+        {
+          opportunityId,
+          formData,
+          signature: signature.trim(),
+        },
+        'submitted'
+      )
+
+      if (result.success) {
+        toast({
+          title: "Application submitted!",
+          description: "Your application has been submitted successfully and is now under review.",
+        })
+        router.push("/applications")
+      } else {
+        toast({
+          title: "Submission failed",
+          description: result.error || "Failed to submit application. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
       toast({
         title: "Submission failed",
-        description: "Failed to submit application. Please try again.",
+        description: error.message || "Failed to submit application. Please try again.",
         variant: "destructive",
       })
     } finally {

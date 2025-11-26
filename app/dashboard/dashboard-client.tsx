@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,9 +15,13 @@ import {
   TrendingUp,
   Building,
   AlertCircle,
+  Loader2,
 } from "lucide-react"
-import { mockMatches, mockApplications, mockFundingOpportunities } from "@/lib/mock-data"
-import type { Match, Application } from "@/lib/db-schema"
+import { getUserMatches } from "@/app/actions/matches"
+import { getUserApplications } from "@/app/actions/applications"
+import { getAllOpportunities } from "@/app/actions/opportunities"
+import { isProfileComplete } from "@/app/actions/user-profiles"
+import type { Match, Application, FundingOpportunity } from "@/lib/db-schema"
 import type { AuthUser } from "@/lib/auth"
 
 interface DashboardClientProps {
@@ -25,14 +29,113 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ user }: DashboardClientProps) {
-  const [matches] = useState<Match[]>(mockMatches)
-  const [applications] = useState<Application[]>(mockApplications)
-  const [profileComplete] = useState(45) // Mock profile completion
+  const [matches, setMatches] = useState<Match[]>([])
+  const [applications, setApplications] = useState<Application[]>([])
+  const [opportunities, setOpportunities] = useState<FundingOpportunity[]>([])
+  const [profileComplete, setProfileComplete] = useState(100)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        // Fetch all data in parallel
+        const [matchesResult, appsResult, oppsResult, profileCompleteResult] = await Promise.all([
+          getUserMatches(),
+          getUserApplications(),
+          getAllOpportunities(),
+          isProfileComplete(),
+        ])
+
+        // Set matches
+        if (matchesResult.success && matchesResult.data) {
+          // Transform Prisma data to match schema format
+          const transformedMatches = (matchesResult.data as any[]).map((m: any) => ({
+            id: m.id,
+            user_id: m.userId,
+            opportunity_id: m.opportunityId,
+            match_score: m.matchScore,
+            match_reasons: m.matchReasons || [],
+            status: m.status,
+            created_at: m.createdAt ? new Date(m.createdAt) : new Date(),
+            viewed_at: m.viewedAt ? new Date(m.viewedAt) : null,
+          }))
+          setMatches(transformedMatches)
+        }
+
+        // Set applications
+        if (appsResult.success && appsResult.data) {
+          // Transform Prisma data to match schema format
+          const transformedApps = (appsResult.data as any[]).map((a: any) => ({
+            id: a.id,
+            user_id: a.userId,
+            opportunity_id: a.opportunityId,
+            match_id: a.matchId,
+            status: a.status,
+            form_data: a.formData || {},
+            ai_completed: a.aiCompleted || false,
+            user_edited: a.userEdited || false,
+            submitted_at: a.submittedAt ? new Date(a.submittedAt) : null,
+            reviewed_at: a.reviewedAt ? new Date(a.reviewedAt) : null,
+            outcome: a.outcome,
+            outcome_reason: a.outcomeReason,
+            signature: a.signature,
+            created_at: a.createdAt ? new Date(a.createdAt) : new Date(),
+            updated_at: a.updatedAt ? new Date(a.updatedAt) : new Date(),
+          }))
+          setApplications(transformedApps)
+        }
+
+        // Set opportunities
+        if (oppsResult.success && oppsResult.data) {
+          // Transform Prisma data to match schema format
+          const transformedOpps = (oppsResult.data as any[]).map((o: any) => ({
+            id: o.id,
+            funder_name: o.funderName,
+            program_name: o.programName,
+            description: o.description,
+            amount_range_min: Number(o.amountRangeMin),
+            amount_range_max: Number(o.amountRangeMax),
+            eligibility_criteria: o.eligibilityCriteria || [],
+            application_url: o.applicationUrl,
+            deadline: o.deadline ? new Date(o.deadline) : new Date(),
+            industry_focus: o.industryFocus || [],
+            funding_type: o.fundingType,
+            requirements: o.requirements || [],
+            created_at: o.createdAt ? new Date(o.createdAt) : new Date(),
+          }))
+          setOpportunities(transformedOpps)
+        }
+
+        // Set profile completion
+        setProfileComplete(profileCompleteResult ? 100 : 0)
+      } catch (error) {
+        console.error('Error loading dashboard data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   const newMatches = matches.filter((m) => m.status === "new")
   const draftApps = applications.filter((a) => a.status === "draft")
   const submittedApps = applications.filter((a) => a.status === "submitted" || a.status === "in_review")
   const completedApps = applications.filter((a) => a.status === "approved" || a.status === "rejected")
+
+  // Calculate success rate
+  const successRate = completedApps.length > 0
+    ? Math.round((completedApps.filter((a) => a.status === "approved").length / completedApps.length) * 100)
+    : 0
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const getStatusBadge = (status: Application["status"]) => {
     const variants = {
@@ -128,8 +231,12 @@ export default function DashboardClient({ user }: DashboardClientProps) {
               <TrendingUp className="h-5 w-5 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">78%</div>
-              <p className="text-xs text-muted-foreground mt-1">Based on platform average</p>
+              <div className="text-3xl font-bold text-foreground">{successRate}%</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {completedApps.length > 0 
+                  ? `Based on your ${completedApps.length} completed application${completedApps.length > 1 ? 's' : ''}`
+                  : 'No completed applications yet'}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -156,7 +263,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             <CardContent className="space-y-4">
               {newMatches.length > 0 ? (
                 newMatches.map((match) => {
-                  const opportunity = mockFundingOpportunities.find((o) => o.id === match.opportunity_id)
+                  const opportunity = opportunities.find((o) => o.id === match.opportunity_id)
                   if (!opportunity) return null
 
                   return (
@@ -211,7 +318,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             <CardContent className="space-y-4">
               {applications.length > 0 ? (
                 applications.slice(0, 3).map((app) => {
-                  const opportunity = mockFundingOpportunities.find((o) => o.id === app.opportunity_id)
+                  const opportunity = opportunities.find((o) => o.id === app.opportunity_id)
                   if (!opportunity) return null
 
                   return (

@@ -23,34 +23,129 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
-    const video1 = videoRef.current
-    const video2 = video2Ref.current
+    // Don't initialize videos if splash screen is showing
+    if (showSplash) return
 
-    if (!video1 || !video2) return
+    let timeoutId: NodeJS.Timeout
+    let video1: HTMLVideoElement | null = null
+    let video2: HTMLVideoElement | null = null
+    let handleVideo1End: (() => void) | null = null
+    let handleVideo2End: (() => void) | null = null
+    let handleCanPlay: (() => void) | null = null
 
-    const handleVideo1End = () => {
-      // When video 1 ends, play video 2
-      setCurrentVideo(2)
-      video2.play()
-    }
+    // Small delay to ensure videos are in the DOM after splash screen transition
+    timeoutId = setTimeout(() => {
+      video1 = videoRef.current
+      video2 = video2Ref.current
 
-    const handleVideo2End = () => {
-      // When video 2 ends, play video 1
-      setCurrentVideo(1)
-      video1.play()
-    }
+      if (!video1 || !video2) return
 
-    // Start with video 1
-    video1.play()
+      // Check if videos are still connected to the DOM
+      if (!video1.isConnected || !video2.isConnected) return
 
-    video1.addEventListener("ended", handleVideo1End)
-    video2.addEventListener("ended", handleVideo2End)
+      handleVideo1End = () => {
+        // Check if video2 is still connected before playing
+        if (video2 && video2.isConnected) {
+          setCurrentVideo(2)
+          video2.play().catch((error) => {
+            // Silently handle play errors (e.g., video removed from DOM)
+            console.debug("Video2 play error:", error)
+          })
+        }
+      }
+
+      handleVideo2End = () => {
+        // Check if video1 is still connected before playing
+        if (video1 && video1.isConnected) {
+          setCurrentVideo(1)
+          video1.play().catch((error) => {
+            // Silently handle play errors (e.g., video removed from DOM)
+            console.debug("Video1 play error:", error)
+          })
+        }
+      }
+
+      // Ensure videos start loading
+      video1.load()
+      video2.load()
+
+      // Wait for videos to be ready before playing
+      const initializeVideos = () => {
+        // Only start playing if videos are still connected
+        if (video1 && video2 && video1.isConnected && video2.isConnected) {
+          video1.play().catch((error) => {
+            // Log error for debugging (autoplay restrictions, video removed, etc.)
+            console.debug("Video1 initial play error:", error)
+          })
+        }
+      }
+
+      // Handler for when videos can play
+      let hasInitialized = false
+      handleCanPlay = () => {
+        // Check if both videos have enough data to play (readyState >= 2 means HAVE_CURRENT_DATA)
+        if (!hasInitialized && video1 && video2 && video1.readyState >= 2 && video2.readyState >= 2) {
+          hasInitialized = true
+          initializeVideos()
+          if (video1 && video1.isConnected) {
+            video1.removeEventListener("canplaythrough", handleCanPlay!)
+            video1.removeEventListener("canplay", handleCanPlay!)
+            video1.removeEventListener("loadeddata", handleCanPlay!)
+          }
+          if (video2 && video2.isConnected) {
+            video2.removeEventListener("canplaythrough", handleCanPlay!)
+            video2.removeEventListener("canplay", handleCanPlay!)
+            video2.removeEventListener("loadeddata", handleCanPlay!)
+          }
+        }
+      }
+
+      // Try to play immediately if videos are already loaded
+      if (video1.readyState >= 2 && video2.readyState >= 2) {
+        initializeVideos()
+      } else {
+        // Wait for videos to load - use multiple events for better compatibility
+        video1.addEventListener("canplaythrough", handleCanPlay)
+        video2.addEventListener("canplaythrough", handleCanPlay)
+        video1.addEventListener("canplay", handleCanPlay)
+        video2.addEventListener("canplay", handleCanPlay)
+        video1.addEventListener("loadeddata", handleCanPlay)
+        video2.addEventListener("loadeddata", handleCanPlay)
+
+        // Fallback: try to play after 2 seconds regardless of readyState
+        setTimeout(() => {
+          if (!hasInitialized && video1 && video2 && video1.isConnected && video2.isConnected) {
+            hasInitialized = true
+            initializeVideos()
+          }
+        }, 2000)
+      }
+
+      if (handleVideo1End) video1.addEventListener("ended", handleVideo1End)
+      if (handleVideo2End) video2.addEventListener("ended", handleVideo2End)
+    }, 100) // Small delay to ensure DOM is ready
 
     return () => {
-      video1.removeEventListener("ended", handleVideo1End)
-      video2.removeEventListener("ended", handleVideo2End)
+      clearTimeout(timeoutId)
+      // Clean up event listeners
+      if (video1 && video1.isConnected && handleVideo1End) {
+        video1.removeEventListener("ended", handleVideo1End)
+      }
+      if (video2 && video2.isConnected && handleVideo2End) {
+        video2.removeEventListener("ended", handleVideo2End)
+      }
+      if (video1 && video1.isConnected && handleCanPlay) {
+        video1.removeEventListener("canplaythrough", handleCanPlay)
+        video1.removeEventListener("canplay", handleCanPlay)
+        video1.removeEventListener("loadeddata", handleCanPlay)
+      }
+      if (video2 && video2.isConnected && handleCanPlay) {
+        video2.removeEventListener("canplaythrough", handleCanPlay)
+        video2.removeEventListener("canplay", handleCanPlay)
+        video2.removeEventListener("loadeddata", handleCanPlay)
+      }
     }
-  }, [])
+  }, [showSplash])
 
   const handleSplashComplete = () => {
     sessionStorage.setItem("splashShown", "true")
@@ -69,6 +164,7 @@ export default function HomePage() {
           muted
           playsInline
           loop={false}
+          preload="auto"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
             currentVideo === 1 ? "opacity-50 z-10" : "opacity-0 z-0"
           }`}
@@ -84,6 +180,7 @@ export default function HomePage() {
           muted
           playsInline
           loop={false}
+          preload="auto"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
             currentVideo === 2 ? "opacity-50 z-10" : "opacity-0 z-0"
           }`}

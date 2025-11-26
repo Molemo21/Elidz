@@ -94,8 +94,10 @@ export class JWTAuthService {
 
     // Check if user has a password hash (migrated to JWT auth)
     if (!user.passwordHash) {
+      // User exists but doesn't have a password hash set
+      // Direct them to reset password to set one
       throw new Error(
-        'This account still uses Supabase authentication. Please use the login page with Supabase Auth, or contact support to migrate your account.'
+        'This account needs to set a password. Please use "Forgot Password" to set your password, or contact support for assistance.'
       )
     }
 

@@ -3,7 +3,7 @@
 
 'use server'
 
-import { signIn, signOut } from '@/lib/auth-nextauth'
+import { signIn, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
@@ -109,5 +109,71 @@ export async function registerAction(data: {
 export async function logoutAction(): Promise<void> {
   await signOut()
   redirect('/login')
+}
+
+/**
+ * Server action to request password reset
+ * For users without passwordHash, this allows them to set an initial password
+ */
+export async function requestPasswordResetAction(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email },
+    })
+
+    if (!user) {
+      // Don't reveal if user exists for security
+      return { success: true }
+    }
+
+    // For now, we'll return success
+    // In production, you'd send an email with a reset token here
+    // For development, we can allow direct password reset
+    return { success: true }
+  } catch (error) {
+    console.error('Password reset request error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+/**
+ * Server action to reset/set password
+ * Works for users with or without existing passwordHash
+ */
+export async function resetPasswordAction(
+  email: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+    })
+
+    if (!user) {
+      return { success: false, error: 'User not found' }
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+
+    // Update user's password hash
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Password reset error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+    }
+  }
 }
 

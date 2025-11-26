@@ -1,10 +1,10 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Server action to create user record after signup
- * Uses the system function via RPC which bypasses RLS
+ * Now uses Prisma instead of Supabase client
  * This is a reliable backup in case the trigger doesn't fire immediately
  */
 export async function createUserRecord(userId: string, userData: {
@@ -15,14 +15,11 @@ export async function createUserRecord(userId: string, userData: {
   phone: string
 }) {
   try {
-    const supabase = await createClient()
-
     // Check if user record already exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle()
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    })
 
     if (existingUser) {
       return {
@@ -32,42 +29,38 @@ export async function createUserRecord(userId: string, userData: {
       }
     }
 
-    // Use the system function via RPC (bypasses RLS)
-    // This function uses SECURITY DEFINER and doesn't require auth check
-    const { data, error } = await (supabase as any).rpc('create_user_record_system', {
-      user_id: userId,
-      user_email: userData.email,
-      user_role: userData.role,
-      user_first_name: userData.firstName,
-      user_last_name: userData.lastName,
-      user_phone: userData.phone,
-    })
+    // Create user record using Prisma
+    try {
+      const user = await prisma.user.create({
+        data: {
+          id: userId,
+          email: userData.email,
+          role: userData.role,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          phone: userData.phone,
+          approved: false, // Requires admin approval
+        },
+        select: {
+          id: true,
+        },
+      })
 
-    if (error) {
+      return {
+        success: true,
+        message: 'User record created successfully',
+        data: user,
+      }
+    } catch (error: any) {
       // If duplicate key error, record exists (race condition - trigger created it)
-      if (error.code === '23505') {
+      if (error.code === 'P2002') {
         return {
           success: true,
           message: 'User record already exists (created by trigger)',
         }
       }
 
-      console.error('Failed to create user record via RPC:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-      })
-
-      return {
-        success: false,
-        error: error.message || 'Failed to create user record',
-      }
-    }
-
-    return {
-      success: true,
-      message: 'User record created successfully',
-      data: { id: data || userId },
+      throw error
     }
   } catch (error: any) {
     console.error('Error in createUserRecord:', error)

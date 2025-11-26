@@ -153,11 +153,36 @@ export const fundingOpportunitySchema = z.object({
     .min(1, 'At least one eligibility criterion is required')
     .max(50, 'Too many eligibility criteria'),
   application_url: z.string()
-    .url('Invalid application URL')
-    .max(500, 'URL must be less than 500 characters'),
+    .min(1, 'Application URL is required')
+    .max(500, 'URL must be less than 500 characters')
+    .refine((url) => {
+      // More flexible URL validation - allows URLs with or without protocol
+      try {
+        // If it doesn't start with http:// or https://, add https:// for validation
+        const testUrl = url.startsWith('http://') || url.startsWith('https://') 
+          ? url 
+          : `https://${url}`
+        new URL(testUrl)
+        return true
+      } catch {
+        return false
+      }
+    }, {
+      message: 'Invalid application URL format. Please enter a valid URL (e.g., https://example.com/apply)'
+    }),
   deadline: z.string()
-    .datetime('Invalid deadline format (must be ISO 8601)')
-    .refine((date) => new Date(date) > new Date(), {
+    .min(1, 'Deadline is required')
+    .refine((date) => {
+      // Accept both date (YYYY-MM-DD) and ISO datetime formats
+      const parsed = new Date(date)
+      return !isNaN(parsed.getTime())
+    }, {
+      message: 'Invalid deadline format. Please select a valid date.'
+    })
+    .refine((date) => {
+      const parsed = new Date(date)
+      return parsed > new Date()
+    }, {
       message: 'Deadline must be in the future'
     }),
   industry_focus: z.array(z.string())
@@ -196,4 +221,65 @@ export const matchSchema = z.object({
 
 export type MatchInput = z.infer<typeof matchSchema>
 
+// ============================================================================
+// NOTIFICATION VALIDATION
+// ============================================================================
+
+export const notificationSchema = z.object({
+  user_id: z.string().uuid('Invalid user ID'),
+  type: z.enum(['match', 'application_completed', 'status_update'], {
+    errorMap: () => ({ message: 'Type must be one of: match, application_completed, status_update' })
+  }),
+  title: z.string()
+    .min(1, 'Title is required')
+    .max(255, 'Title must be less than 255 characters')
+    .trim(),
+  message: z.string()
+    .min(1, 'Message is required')
+    .max(2000, 'Message must be less than 2000 characters')
+    .trim(),
+  read: z.boolean().default(false)
+})
+
+export const notificationUpdateSchema = z.object({
+  read: z.boolean().optional()
+})
+
+export type NotificationInput = z.infer<typeof notificationSchema>
+export type NotificationUpdateInput = z.infer<typeof notificationUpdateSchema>
+
+// ============================================================================
+// DOCUMENT VALIDATION
+// ============================================================================
+
+export const documentSchema = z.object({
+  user_id: z.string().uuid('Invalid user ID'),
+  name: z.string()
+    .min(1, 'Document name is required')
+    .max(255, 'Document name must be less than 255 characters')
+    .trim(),
+  type: z.string()
+    .min(1, 'Document type is required')
+    .max(100, 'Document type must be less than 100 characters')
+    .trim(),
+  url: z.string()
+    .url('Invalid document URL')
+    .max(1000, 'URL must be less than 1000 characters')
+})
+
+export type DocumentInput = z.infer<typeof documentSchema>
+
+// ============================================================================
+// SEARCH/FILTER VALIDATION
+// ============================================================================
+
+export const opportunitySearchSchema = z.object({
+  industry: z.string().optional(),
+  minAmount: z.number().min(0).optional(),
+  maxAmount: z.number().min(0).optional(),
+  fundingType: z.string().optional(),
+  deadlineAfter: z.string().datetime().optional()
+})
+
+export type OpportunitySearchInput = z.infer<typeof opportunitySearchSchema>
 

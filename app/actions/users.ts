@@ -30,7 +30,38 @@ export async function getAllUsers(): Promise<UserManagementResponse> {
     
     // Use optimized query helper
     const result = await userQueries.getAll()
-    return result
+    
+    // Log for debugging
+    console.log('[getAllUsers] Query result:', {
+      success: result.success,
+      hasData: !!result.data,
+      dataType: Array.isArray(result.data) ? 'array' : typeof result.data,
+      dataLength: Array.isArray(result.data) ? result.data.length : 'N/A',
+      error: result.error,
+    })
+    
+    // Ensure the result is properly formatted
+    if (result.success && result.data) {
+      // Ensure data is always an array
+      const usersArray = Array.isArray(result.data) ? result.data : [result.data]
+      
+      // Ensure all Date objects are serialized to strings
+      const serializedUsers = usersArray.map((user: any) => ({
+        ...user,
+        created_at: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at,
+        last_login: user.last_login instanceof Date ? user.last_login.toISOString() : user.last_login,
+      }))
+      
+      return {
+        success: true,
+        data: serializedUsers,
+      }
+    }
+    
+    return {
+      success: false,
+      error: result.error || 'Failed to fetch users',
+    }
   } catch (error: any) {
     // Handle redirect errors
     if (error.message?.includes('redirect') || error.message?.includes('NEXT_REDIRECT')) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Calendar, DollarSign, FileText, CheckCircle2, Sparkles, ArrowLeft, Building } from "lucide-react"
-import { mockFundingOpportunities, mockMatches } from "@/lib/mock-data"
 import { AIMatchingService } from "@/lib/ai-service"
 import type { FundingOpportunity, UserProfile } from "@/lib/db-schema"
+import { getOpportunityById } from "@/app/actions/opportunities"
 
 export default function OpportunityDetailPage() {
   const { user, loading: authLoading } = useAuth()
@@ -23,16 +23,79 @@ export default function OpportunityDetailPage() {
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
 
+  // Track if we've already fetched to prevent multiple calls
+  const hasFetchedRef = useRef(false)
+
   useEffect(() => {
-    if (!authLoading && !user) {
+    // Don't fetch if auth is still loading
+    if (authLoading) return
+
+    // Redirect if not logged in
+    if (!user) {
       router.push("/login")
+      return
     }
 
-    if (params.id) {
-      const opp = mockFundingOpportunities.find((o) => o.id === params.id)
-      setOpportunity(opp || null)
+    // Don't fetch if no params.id
+    if (!params.id || typeof params.id !== 'string') {
+      return
     }
-  }, [user, authLoading, router, params.id])
+
+    // Prevent multiple fetches
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+
+    const fetchOpportunity = async () => {
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(params.id as string)) {
+        toast({
+          title: "Invalid opportunity",
+          description: "The opportunity ID is invalid.",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          router.push("/opportunities")
+        }, 100)
+        return
+      }
+
+      try {
+        const result = await getOpportunityById(params.id as string)
+        
+        if (result.success && result.data) {
+          // Convert Prisma date strings to Date objects if needed
+          const opp = result.data as any
+          setOpportunity({
+            ...opp,
+            deadline: opp.deadline ? new Date(opp.deadline) : new Date(),
+            created_at: opp.createdAt ? new Date(opp.createdAt) : new Date(),
+          })
+        } else {
+          toast({
+            title: "Opportunity not found",
+            description: result.error || "The opportunity you're looking for doesn't exist.",
+            variant: "destructive",
+          })
+          setTimeout(() => {
+            router.push("/opportunities")
+          }, 100)
+        }
+      } catch (error: any) {
+        console.error("Error fetching opportunity:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load opportunity details.",
+          variant: "destructive",
+        })
+        setTimeout(() => {
+          router.push("/opportunities")
+        }, 100)
+      }
+    }
+
+    fetchOpportunity()
+  }, [user, authLoading, params.id]) // Removed router and toast from dependencies
 
   if (authLoading || !user) {
     return (
@@ -53,7 +116,8 @@ export default function OpportunityDetailPage() {
     )
   }
 
-  const match = mockMatches.find((m) => m.opportunity_id === opportunity.id)
+  // Note: Match data would need to be fetched from database if needed
+  // For now, we'll skip match display or fetch it separately
 
   const handleStartApplication = async () => {
     setGenerating(true)

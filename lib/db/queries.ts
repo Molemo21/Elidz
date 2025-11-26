@@ -185,16 +185,43 @@ export const userProfileQueries = {
 export const userQueries = {
   /**
    * Get all users (admin only - caller must verify admin status)
+   * Returns users with password_hash included (for checking if password is set)
    */
   async getAll(): Promise<QueryResult<Prisma.UserGetPayload<{}>[]>> {
     try {
       const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          passwordHash: true, // Include to check if password is set
+          role: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          approved: true,
+          createdAt: true,
+          lastLogin: true,
+        },
         orderBy: {
           createdAt: 'desc',
         },
       })
 
-      return { success: true, data: users }
+      // Map Prisma field names to database field names for client
+      const mappedUsers = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        password_hash: user.passwordHash, // Map to snake_case for client
+        role: user.role,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        phone: user.phone,
+        approved: user.approved,
+        created_at: user.createdAt.toISOString(),
+        last_login: user.lastLogin?.toISOString() || null,
+      }))
+
+      return { success: true, data: mappedUsers as any }
     } catch (error: any) {
       return handlePrismaError(error)
     }
@@ -296,7 +323,8 @@ export const opportunityQueries = {
         },
       })
 
-      return { success: true, data: opportunities }
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunities) }
     } catch (error: any) {
       return handlePrismaError(error)
     }
@@ -321,7 +349,8 @@ export const opportunityQueries = {
         }
       }
 
-      return { success: true, data: opportunity }
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunity) }
     } catch (error: any) {
       return handlePrismaError(error)
     }
@@ -345,7 +374,8 @@ export const opportunityQueries = {
         },
       })
 
-      return { success: true, data: opportunities }
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunities) }
     } catch (error: any) {
       return handlePrismaError(error)
     }
@@ -368,7 +398,119 @@ export const opportunityQueries = {
         },
       })
 
-      return { success: true, data: opportunities }
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunities) }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Create new funding opportunity (admin only - caller must verify admin status)
+   */
+  async create(
+    data: Prisma.FundingOpportunityCreateInput
+  ): Promise<QueryResult<Prisma.FundingOpportunityGetPayload<{}>>> {
+    try {
+      const opportunity = await prisma.fundingOpportunity.create({
+        data,
+      })
+
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunity) }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Update funding opportunity (admin only - caller must verify admin status)
+   */
+  async update(
+    id: string,
+    data: Prisma.FundingOpportunityUpdateInput
+  ): Promise<QueryResult<Prisma.FundingOpportunityGetPayload<{}>>> {
+    try {
+      const opportunity = await prisma.fundingOpportunity.update({
+        where: { id },
+        data,
+      })
+
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunity) }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Delete funding opportunity (admin only - caller must verify admin status)
+   */
+  async delete(id: string): Promise<QueryResult<void>> {
+    try {
+      await prisma.fundingOpportunity.delete({
+        where: { id },
+      })
+
+      return { success: true }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get opportunities by filters
+   */
+  async getByFilters(filters: {
+    industry?: string
+    minAmount?: number
+    maxAmount?: number
+    fundingType?: string
+    deadlineAfter?: Date
+  }): Promise<QueryResult<Prisma.FundingOpportunityGetPayload<{}>[]>> {
+    try {
+      const where: Prisma.FundingOpportunityWhereInput = {}
+
+      if (filters.industry) {
+        where.industryFocus = {
+          has: filters.industry,
+        }
+      }
+
+      if (filters.minAmount !== undefined || filters.maxAmount !== undefined) {
+        where.amountRangeMin = {}
+        where.amountRangeMax = {}
+        
+        if (filters.minAmount !== undefined) {
+          where.amountRangeMin = { lte: filters.minAmount }
+        }
+        if (filters.maxAmount !== undefined) {
+          where.amountRangeMax = { gte: filters.maxAmount }
+        }
+      }
+
+      if (filters.fundingType) {
+        where.fundingType = {
+          contains: filters.fundingType,
+          mode: 'insensitive',
+        }
+      }
+
+      if (filters.deadlineAfter) {
+        where.deadline = {
+          gte: filters.deadlineAfter,
+        }
+      }
+
+      const opportunities = await prisma.fundingOpportunity.findMany({
+        where,
+        orderBy: {
+          deadline: 'asc',
+        },
+      })
+
+      // Serialize Decimal values for client components
+      return { success: true, data: serializePrismaResult(opportunities) }
     } catch (error: any) {
       return handlePrismaError(error)
     }
@@ -421,6 +563,98 @@ export const matchQueries = {
       })
 
       return { success: true, data: match }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Create a new match
+   */
+  async create(
+    data: Prisma.MatchCreateInput
+  ): Promise<QueryResult<Prisma.MatchGetPayload<{}>>> {
+    try {
+      const match = await prisma.match.create({
+        data,
+      })
+
+      return { success: true, data: match }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Bulk create matches (uses transaction for atomicity)
+   */
+  async bulkCreate(
+    matches: Prisma.MatchCreateInput[]
+  ): Promise<QueryResult<Prisma.MatchGetPayload<{}>[]>> {
+    try {
+      // Use transaction to ensure all matches are created or none
+      const createdMatches = await prisma.$transaction(
+        matches.map((match) => prisma.match.create({ data: match }))
+      )
+
+      return { success: true, data: createdMatches }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get matches by opportunity ID
+   */
+  async getByOpportunityId(
+    opportunityId: string
+  ): Promise<QueryResult<Prisma.MatchGetPayload<{}>[]>> {
+    try {
+      const matches = await prisma.match.findMany({
+        where: { opportunityId },
+        orderBy: {
+          matchScore: 'desc',
+        },
+      })
+
+      return { success: true, data: matches }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Mark match as viewed
+   */
+  async markAsViewed(matchId: string): Promise<QueryResult<Prisma.MatchGetPayload<{}>>> {
+    try {
+      const match = await prisma.match.update({
+        where: { id: matchId },
+        data: {
+          status: 'viewed',
+          viewedAt: new Date(),
+        },
+      })
+
+      return { success: true, data: match }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get count of unviewed matches for user
+   */
+  async getUnviewedCount(userId: string): Promise<QueryResult<number>> {
+    try {
+      const count = await prisma.match.count({
+        where: {
+          userId,
+          status: 'new',
+        },
+      })
+
+      return { success: true, data: count }
     } catch (error: any) {
       return handlePrismaError(error)
     }
@@ -478,6 +712,121 @@ export const applicationQueries = {
   },
 
   /**
+   * Get all applications (admin only - caller must verify admin status)
+   */
+  async getAll(): Promise<QueryResult<Prisma.ApplicationGetPayload<{
+    include: {
+      user: {
+        select: {
+          id: true
+          email: true
+          firstName: true
+          lastName: true
+        }
+      }
+      opportunity: {
+        select: {
+          id: true
+          programName: true
+          funderName: true
+        }
+      }
+    }
+  }>[]>> {
+    try {
+      const applications = await prisma.application.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          opportunity: {
+            select: {
+              id: true,
+              programName: true,
+              funderName: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+      return { success: true, data: applications }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Create or update application
+   */
+  async upsert(
+    data: {
+      userId: string
+      opportunityId: string
+      matchId?: string | null
+      formData: Record<string, any>
+      status?: string
+      aiCompleted?: boolean
+      userEdited?: boolean
+      signature?: string | null
+    }
+  ): Promise<QueryResult<Prisma.ApplicationGetPayload<{}>>> {
+    try {
+      // Check if application already exists for this user/opportunity
+      const existing = await prisma.application.findFirst({
+        where: {
+          userId: data.userId,
+          opportunityId: data.opportunityId,
+        },
+      })
+
+      if (existing) {
+        // Update existing application
+        const application = await prisma.application.update({
+          where: { id: existing.id },
+          data: {
+            formData: data.formData,
+            status: data.status || existing.status,
+            aiCompleted: data.aiCompleted ?? existing.aiCompleted,
+            userEdited: data.userEdited ?? existing.userEdited,
+            signature: data.signature ?? existing.signature,
+            matchId: data.matchId ?? existing.matchId,
+            submittedAt: data.status === 'submitted' ? new Date() : existing.submittedAt,
+          },
+        })
+
+        return { success: true, data: application }
+      } else {
+        // Create new application
+        const application = await prisma.application.create({
+          data: {
+            userId: data.userId,
+            opportunityId: data.opportunityId,
+            matchId: data.matchId,
+            formData: data.formData,
+            status: data.status || 'draft',
+            aiCompleted: data.aiCompleted || false,
+            userEdited: data.userEdited || false,
+            signature: data.signature,
+            submittedAt: data.status === 'submitted' ? new Date() : null,
+          },
+        })
+
+        return { success: true, data: application }
+      }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
    * Update application status
    */
   async updateStatus(
@@ -499,6 +848,295 @@ export const applicationQueries = {
       })
 
       return { success: true, data: application }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get draft applications for user
+   */
+  async getDrafts(
+    userId: string
+  ): Promise<QueryResult<Prisma.ApplicationGetPayload<{}>[]>> {
+    try {
+      const applications = await prisma.application.findMany({
+        where: {
+          userId,
+          status: 'draft',
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+      })
+
+      return { success: true, data: applications }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get applications by status for user
+   */
+  async getByStatus(
+    userId: string,
+    status: string
+  ): Promise<QueryResult<Prisma.ApplicationGetPayload<{}>[]>> {
+    try {
+      const applications = await prisma.application.findMany({
+        where: {
+          userId,
+          status,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+      return { success: true, data: applications }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Delete application (for draft cleanup)
+   */
+  async delete(id: string): Promise<QueryResult<void>> {
+    try {
+      await prisma.application.delete({
+        where: { id },
+      })
+
+      return { success: true }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+}
+
+// ============================================================================
+// NOTIFICATION QUERIES
+// ============================================================================
+
+export const notificationQueries = {
+  /**
+   * Get notifications for user
+   */
+  async getByUserId(
+    userId: string,
+    filters?: { read?: boolean }
+  ): Promise<QueryResult<Prisma.NotificationGetPayload<{}>[]>> {
+    try {
+      const where: Prisma.NotificationWhereInput = { userId }
+
+      if (filters?.read !== undefined) {
+        where.read = filters.read
+      }
+
+      const notifications = await prisma.notification.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+      return { success: true, data: notifications }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get unread notification count for user
+   */
+  async getUnreadCount(userId: string): Promise<QueryResult<number>> {
+    try {
+      const count = await prisma.notification.count({
+        where: {
+          userId,
+          read: false,
+        },
+      })
+
+      return { success: true, data: count }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Create a new notification
+   */
+  async create(
+    data: Prisma.NotificationCreateInput
+  ): Promise<QueryResult<Prisma.NotificationGetPayload<{}>>> {
+    try {
+      const notification = await prisma.notification.create({
+        data,
+      })
+
+      return { success: true, data: notification }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Mark notification as read
+   */
+  async markAsRead(id: string): Promise<QueryResult<Prisma.NotificationGetPayload<{}>>> {
+    try {
+      const notification = await prisma.notification.update({
+        where: { id },
+        data: { read: true },
+      })
+
+      return { success: true, data: notification }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Mark all notifications as read for user
+   */
+  async markAllAsRead(userId: string): Promise<QueryResult<number>> {
+    try {
+      const result = await prisma.notification.updateMany({
+        where: {
+          userId,
+          read: false,
+        },
+        data: {
+          read: true,
+        },
+      })
+
+      return { success: true, data: result.count }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Delete notification
+   */
+  async delete(id: string): Promise<QueryResult<void>> {
+    try {
+      await prisma.notification.delete({
+        where: { id },
+      })
+
+      return { success: true }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+}
+
+// ============================================================================
+// DOCUMENT QUERIES
+// ============================================================================
+
+export const documentQueries = {
+  /**
+   * Get documents for user
+   */
+  async getByUserId(
+    userId: string
+  ): Promise<QueryResult<Prisma.DocumentGetPayload<{}>[]>> {
+    try {
+      const documents = await prisma.document.findMany({
+        where: { userId },
+        orderBy: {
+          uploadedAt: 'desc',
+        },
+      })
+
+      return { success: true, data: documents }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get document by ID
+   */
+  async getById(
+    id: string
+  ): Promise<QueryResult<Prisma.DocumentGetPayload<{}>>> {
+    try {
+      const document = await prisma.document.findUnique({
+        where: { id },
+      })
+
+      if (!document) {
+        return {
+          success: false,
+          error: 'Document not found',
+          code: 'NOT_FOUND',
+        }
+      }
+
+      return { success: true, data: document }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Get documents by type for user
+   */
+  async getByType(
+    userId: string,
+    type: string
+  ): Promise<QueryResult<Prisma.DocumentGetPayload<{}>[]>> {
+    try {
+      const documents = await prisma.document.findMany({
+        where: {
+          userId,
+          type,
+        },
+        orderBy: {
+          uploadedAt: 'desc',
+        },
+      })
+
+      return { success: true, data: documents }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Create a new document record
+   */
+  async create(
+    data: Prisma.DocumentCreateInput
+  ): Promise<QueryResult<Prisma.DocumentGetPayload<{}>>> {
+    try {
+      const document = await prisma.document.create({
+        data,
+      })
+
+      return { success: true, data: document }
+    } catch (error: any) {
+      return handlePrismaError(error)
+    }
+  },
+
+  /**
+   * Delete document
+   */
+  async delete(id: string): Promise<QueryResult<void>> {
+    try {
+      await prisma.document.delete({
+        where: { id },
+      })
+
+      return { success: true }
     } catch (error: any) {
       return handlePrismaError(error)
     }

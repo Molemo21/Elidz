@@ -385,10 +385,11 @@ export class AuthService {
       
       try {
         // Add timeout to getSession() call since it can hang
+        // Reduced timeout to 3 seconds for faster response
         const sessionTimeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => {
             reject(new Error('getSession() timed out'))
-          }, 5000) // 5 second timeout for session retrieval
+          }, 3000) // 3 second timeout for session retrieval
         })
         
         const sessionPromise = supabase.auth.getSession()
@@ -396,8 +397,11 @@ export class AuthService {
         session = (sessionResult as any).data?.session
         sessionError = (sessionResult as any).error
       } catch (timeoutError: any) {
-        // getSession() timed out - reset client and try reading directly from localStorage as fallback
-        console.warn('getSession() timed out, resetting client and trying localStorage fallback...')
+        // getSession() timed out - try reading directly from localStorage as fallback
+        // Only log warning in development to reduce noise
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('getSession() timed out, trying localStorage fallback...')
+        }
         resetClient() // Reset the stuck client
         
         // Create a fresh client for the fallback
@@ -469,9 +473,13 @@ export class AuthService {
           }
         }
         
-        // If we still don't have a session, return null
+        // If we still don't have a session, return null (user is not logged in)
         if (!session) {
-          console.error('Could not retrieve session - getSession() timed out and localStorage fallback failed')
+          // This is a normal scenario - user is simply not logged in
+          // Only log in development mode to reduce production noise
+          if (useFreshClient && process.env.NODE_ENV === 'development') {
+            console.warn('getSession() timed out and localStorage fallback found no session - user is not logged in')
+          }
           return null
         }
       }

@@ -14,6 +14,7 @@ export function useAuth() {
   // Use refs to prevent multiple simultaneous calls
   const isLoadingUserRef = useRef(false)
   const lastLoadTimeRef = useRef(0)
+  const userRef = useRef<AuthUser | null>(null)
   const LOAD_DEBOUNCE_MS = 3000 // Don't load more than once every 3 seconds
 
   // Ensure we're mounted before accessing browser APIs
@@ -24,8 +25,10 @@ export function useAuth() {
   useEffect(() => {
     if (!mounted) return
 
-    // Initial load
-    loadUser()
+    // Initial load with a small delay to prevent blocking initial render
+    const loadTimer = setTimeout(() => {
+      loadUser()
+    }, 100)
 
     // Set up real-time session listener
     let subscription: { unsubscribe: () => void } | null = null
@@ -36,10 +39,16 @@ export function useAuth() {
       const {
         data: { subscription: sub },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
+        // Debounce auth state changes
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await loadUser()
+          // Only reload if session user ID changed
+          const currentUserId = userRef.current?.id
+          if (!currentUserId || session?.user?.id !== currentUserId) {
+            await loadUser()
+          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
+          userRef.current = null
           router.push('/login')
         }
       })
@@ -48,7 +57,9 @@ export function useAuth() {
     } catch (error: any) {
       // Handle storage initialization errors gracefully
       if (error?.message?.includes('get') || error?.message?.includes('storage')) {
-        console.warn('Auth state listener initialization warning (storage timing issue):', error.message)
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Auth state listener initialization warning (storage timing issue):', error.message)
+        }
         // Still try to load user even if listener fails
         loadUser()
       } else {
@@ -57,23 +68,28 @@ export function useAuth() {
     }
 
     return () => {
+      clearTimeout(loadTimer)
       if (subscription) {
         subscription.unsubscribe()
       }
     }
-  }, [router, mounted])
+  }, [router, mounted]) // Removed 'user' from dependencies to prevent infinite loop
 
   const loadUser = async () => {
     // Prevent multiple simultaneous calls
     if (isLoadingUserRef.current) {
-      console.log('loadUser already in progress, skipping...')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('loadUser already in progress, skipping...')
+      }
       return
     }
     
     // Debounce rapid calls
     const now = Date.now()
     if (now - lastLoadTimeRef.current < LOAD_DEBOUNCE_MS) {
-      console.log('loadUser called too soon, debouncing...')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('loadUser called too soon, debouncing...')
+      }
       return
     }
     lastLoadTimeRef.current = now
@@ -86,7 +102,10 @@ export function useAuth() {
       if (currentUser) {
         // Got user successfully
         setUser(currentUser)
-        console.log('User loaded successfully:', currentUser.email, currentUser.role)
+        userRef.current = currentUser
+        if (process.env.NODE_ENV === 'development') {
+          console.log('User loaded successfully:', currentUser.email, currentUser.role)
+        }
       } else {
         // getCurrentUser returned null - check localStorage directly (don't call getSession() which will timeout)
         // This prevents overwriting a successful login when profile query times out
@@ -118,25 +137,30 @@ export function useAuth() {
                 console.warn('Profile query failed but session exists in localStorage - keeping current user if exists')
                 // Only set to null if we don't already have a user
                 // This preserves the user state from successful login
-                if (!user) {
+                if (!userRef.current) {
                   setUser(null)
+                  userRef.current = null
                 }
               } else {
                 console.log('No valid session in localStorage - clearing user')
                 setUser(null)
+                userRef.current = null
               }
             } else {
               console.log('No session found in localStorage - clearing user')
               setUser(null)
+              userRef.current = null
             }
           } catch (storageError) {
             console.error('Error checking localStorage:', storageError)
             // If we can't check localStorage, clear user as fallback
             setUser(null)
+            userRef.current = null
           }
         } else {
           // Not in browser - clear user
           setUser(null)
+          userRef.current = null
         }
       }
     } catch (error) {
@@ -166,20 +190,25 @@ export function useAuth() {
             if (parsed && parsed.access_token && parsed.user) {
               hasSession = true
               console.warn('Error loading user but session exists in localStorage - keeping current user if exists')
-              if (!user) {
+              if (!userRef.current) {
                 setUser(null)
+                userRef.current = null
               }
             } else {
               setUser(null)
+              userRef.current = null
             }
           } else {
             setUser(null)
+            userRef.current = null
           }
         } catch (storageError) {
           setUser(null)
+          userRef.current = null
         }
       } else {
         setUser(null)
+        userRef.current = null
       }
     } finally {
       isLoadingUserRef.current = false
@@ -196,6 +225,7 @@ export function useAuth() {
   const logout = async () => {
     await AuthService.logout()
     setUser(null)
+    userRef.current = null
     router.push('/login')
   }
 

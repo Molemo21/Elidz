@@ -27,6 +27,9 @@ export function Header() {
   const [showHeaderLogo, setShowHeaderLogo] = useState(false)
   
   const isHomePage = pathname === "/"
+  const isLoginPage = pathname === "/login"
+  const isForgotPasswordPage = pathname === "/forgot-password"
+  const isAdminPage = pathname?.startsWith("/admin")
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
@@ -82,12 +85,17 @@ export function Header() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [isHomePage])
 
-  const headerClasses = isHomePage && !scrolled
+  const headerClasses = (isHomePage && !scrolled) || isLoginPage || isForgotPasswordPage
     ? "fixed top-0 left-0 right-0 z-[9999] bg-transparent backdrop-blur-sm transition-all duration-300"
     : "fixed top-0 left-0 right-0 z-[9999] bg-black shadow-lg transition-all duration-300"
 
   // Hide header during initial splash breathing phase only
   if (showSplash && isHomePage && !showHeaderLogo) {
+    return null
+  }
+
+  // Hide header on admin pages (they have their own sidebar)
+  if (isAdminPage) {
     return null
   }
 
@@ -99,7 +107,7 @@ export function Header() {
           <Link 
             href="/" 
             className={`flex items-center hover:opacity-80 transition-opacity duration-1000 ${
-              showHeaderLogo ? "opacity-100" : "opacity-0"
+              (showHeaderLogo || isLoginPage || isForgotPasswordPage) ? "opacity-100" : "opacity-0"
             }`}
           >
             <Image 
@@ -178,17 +186,7 @@ export function Header() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
-            ) : (
-              <Link href="/login" className="inline-block">
-                <Button 
-                  size="sm" 
-                  className="!bg-orange-500 !text-white hover:!bg-orange-600 !border-0 !font-medium"
-                  style={{ backgroundColor: '#f97316', color: 'white' }}
-                >
-                  Sign In
-                </Button>
-              </Link>
-            )}
+            ) : null}
           </nav>
         </div>
       </div>

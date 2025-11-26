@@ -5,14 +5,18 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Sparkles, Target, FileCheck, TrendingUp, Shield, Users } from "lucide-react"
+import { Sparkles, Target, FileCheck, TrendingUp, Shield, Users, ArrowRight } from "lucide-react"
 import { SplashScreen } from "@/components/splash-screen"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function HomePage() {
   const [showSplash, setShowSplash] = useState(true)
   const [currentVideo, setCurrentVideo] = useState<1 | 2>(1)
+  const [umoyaScale, setUmoyaScale] = useState(1)
   const videoRef = useRef<HTMLVideoElement>(null)
   const video2Ref = useRef<HTMLVideoElement>(null)
+  const umoyaRef = useRef<HTMLDivElement>(null)
+  const { user, isAuthenticated, isAdmin, loading } = useAuth()
 
   useEffect(() => {
     // Check if splash has been shown in this session
@@ -49,6 +53,69 @@ export default function HomePage() {
     return () => {
       video1.removeEventListener("ended", handleVideo1End)
       video2.removeEventListener("ended", handleVideo2End)
+    }
+  }, [])
+
+  // Scroll-triggered zoom animation for Umoya image
+  useEffect(() => {
+    const umoyaElement = umoyaRef.current
+    if (!umoyaElement) return
+
+    const handleScroll = () => {
+      const rect = umoyaElement.getBoundingClientRect()
+      const windowHeight = window.innerHeight
+      
+      // Calculate element position relative to viewport
+      const elementTop = rect.top
+      const elementBottom = rect.bottom
+      const elementCenter = elementTop + rect.height / 2
+      
+      // Animation triggers when element center is between 80% and 20% of viewport height
+      const startPoint = windowHeight * 0.8 // Start zooming when element enters from bottom
+      const endPoint = windowHeight * 0.2 // Finish zooming when element reaches this point
+      
+      // Calculate scroll progress (0 to 1)
+      let progress = 0
+      
+      if (elementCenter <= startPoint && elementCenter >= endPoint) {
+        // Element center is in the animation range
+        const scrollRange = startPoint - endPoint
+        const scrolled = startPoint - elementCenter
+        progress = Math.min(1, Math.max(0, scrolled / scrollRange))
+      } else if (elementCenter < endPoint) {
+        // Element has scrolled past the animation end point - fully zoomed
+        progress = 1
+      }
+      
+      // Calculate scale (zoom from 1.0 to 1.15 for subtle, elegant effect)
+      const minScale = 1.0
+      const maxScale = 1.15
+      const scale = minScale + (maxScale - minScale) * progress
+      
+      setUmoyaScale(scale)
+    }
+
+    // Initial check
+    handleScroll()
+
+    // Add scroll listener with throttling for better performance
+    let ticking = false
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll()
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", handleScroll)
+
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", handleScroll)
     }
   }, [])
 
@@ -99,26 +166,53 @@ export default function HomePage() {
         <div className="relative z-10 container mx-auto px-4 py-20 md:py-32 pt-32 md:pt-40">
           <div className="mx-auto max-w-3xl text-center">
             <h1 className="mb-6 text-balance text-4xl font-bold leading-tight tracking-tight text-white md:text-6xl">
-              Find the Perfect Funding for Your Business
+              {isAuthenticated 
+                ? `Welcome back, ${user?.name?.split(' ')[0] || 'User'}!`
+                : "Find the Perfect Funding for Your Business"
+              }
             </h1>
 
             <p className="mb-8 text-pretty text-lg leading-relaxed text-white/90 md:text-xl">
-              Our AI matches you with the best funding opportunities, auto-completes applications, and guides you
-              through every step of the process.
+              {isAuthenticated
+                ? "Continue exploring funding opportunities and managing your applications."
+                : "Our AI matches you with the best funding opportunities, auto-completes applications, and guides you through every step of the process."
+              }
             </p>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-              <Link href="/register">
-                <Button size="lg" className="w-full sm:w-auto bg-orange-500 text-white hover:bg-orange-600">
-                  Get Started Free
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
-                  Sign In
-                </Button>
-              </Link>
-            </div>
+            {/* Show buttons only if user is NOT authenticated */}
+            {!loading && !isAuthenticated && (
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+                <Link href="/register">
+                  <Button size="lg" className="w-full sm:w-auto bg-orange-500 text-white hover:bg-orange-600">
+                    Get Started Free
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {/* Show dashboard link if user IS authenticated */}
+            {!loading && isAuthenticated && (
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+                <Link href={isAdmin ? "/admin" : "/dashboard"}>
+                  <Button size="lg" className="w-full sm:w-auto bg-orange-500 text-white hover:bg-orange-600">
+                    Go to {isAdmin ? "Admin Dashboard" : "Dashboard"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {/* Show loading state while checking auth */}
+            {loading && (
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+                <div className="h-12 w-32 animate-pulse rounded-md bg-white/20 mx-auto" />
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -190,6 +284,31 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Umoya Image Section */}
+      <section className="container mx-auto px-4 py-12">
+        <div 
+          ref={umoyaRef}
+          className="relative w-full h-auto max-w-5xl mx-auto rounded-lg overflow-hidden shadow-lg"
+        >
+          <div
+            style={{
+              transform: `scale(${umoyaScale})`,
+              transition: "transform 0.05s ease-out",
+              transformOrigin: "center center",
+            }}
+            className="w-full h-full"
+          >
+            <Image 
+              src="/umoya.jpg" 
+              alt="Umoya" 
+              width={1200}
+              height={600}
+              className="w-full h-auto object-cover"
+            />
           </div>
         </div>
       </section>

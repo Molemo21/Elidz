@@ -31,12 +31,24 @@ export default function AdminWrapper() {
 
   if (!mounted || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-          <p className="text-muted-foreground">Loading...</p>
+      <>
+        {/* Background Image - Full Screen (Fixed behind everything) */}
+        <div className="fixed inset-0 -z-10">
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+            style={{
+              backgroundImage: 'url(/land.jpg)',
+            }}
+          />
+          <div className="absolute inset-0 bg-black/70" />
         </div>
-      </div>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-orange-400 border-r-transparent"></div>
+            <p className="text-white/80">Loading...</p>
+          </div>
+        </div>
+      </>
     )
   }
 
